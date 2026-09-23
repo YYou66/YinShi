@@ -8,12 +8,32 @@
  *   饮食记录 → localStorage(records)，模块三接管
  * ========================================================== */
 
-/* ---------- localStorage 的 key ---------- */
+/* ---------- localStorage 的 key（带版本前缀，避免未来字段变动导致旧数据报错） ---------- */
 const LS_KEYS = {
-    favorites: 'ys_favorites',   // 收藏的食物 id 数组
-    calcCart: 'ys_calc_cart',    // 计算器购物车：[{ id, qty }]
-    records: 'ys_records',       // 饮食记录（模块三使用）
+    favorites: 'ys.v3.favorites',    // 收藏的食物 id 数组
+    calcCart: 'ys.v3.calc_cart',     // 计算器购物车：[{ id, qty }]
+    records: 'ys.v3.records',        // 饮食记录（模块三使用）
+    searchHistory: 'ys.v3.history',  // 搜索历史（模块二使用）
+    settings: 'ys.v3.settings',      // 用户设置（体重 / 每日目标，后续模块使用）
 };
+
+/* ---------- 旧版 key 迁移：把 v1 数据无损搬到带版本号的新 key ---------- */
+function migrateLegacyLS() {
+    const legacyMap = {
+        'ys_favorites': LS_KEYS.favorites,
+        'ys_calc_cart': LS_KEYS.calcCart,
+        'ys_records': LS_KEYS.records,
+    };
+    Object.entries(legacyMap).forEach(([oldKey, newKey]) => {
+        try {
+            if (localStorage.getItem(newKey) == null && localStorage.getItem(oldKey) != null) {
+                localStorage.setItem(newKey, localStorage.getItem(oldKey));
+            }
+            localStorage.removeItem(oldKey);
+        } catch (e) { /* 忽略单个 key 的迁移失败 */ }
+    });
+}
+migrateLegacyLS();
 
 /* ---------- 全局状态 ---------- */
 const state = {
@@ -61,6 +81,37 @@ function showToast(message) {
     toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+/** XSS 转义：所有来自用户输入或外部数据的内容，渲染进 HTML 前必须过一遍 */
+function esc(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/** 统一的热量描述：每 100g 或 1 份/个 的 kcal 文案（避免四处手写） */
+function foodBaseText(food) {
+    if (!food) return '';
+    return food.measure === 'weight'
+        ? `每 100g ${food.cal} kcal`
+        : `${food.cal} kcal / 1 ${food.unit}`;
+}
+
+/** 按数量换算热量 + 三大营养素（蛋白质 / 碳水 / 脂肪） */
+function macroSub(food, qty) {
+    const q = Number(qty);
+    if (!food || !isFinite(q) || q <= 0) return { kcal: 0, p: 0, c: 0, f: 0 };
+    const scale = food.measure === 'weight' ? q / 100 : q;
+    return {
+        kcal: Math.round(food.cal * scale),
+        p: Math.round(food.p * scale),
+        c: Math.round(food.c * scale),
+        f: Math.round(food.f * scale),
+    };
 }
 
 /* ==========================================================
@@ -152,7 +203,7 @@ function foodCardHTML(food, index) {
                 <h3 class="food-name">${food.name}</h3>
                 <div class="cal-row">
                     <span class="cal-num">${food.cal}</span>
-                    <span class="cal-unit">大卡</span>
+                    <span class="cal-unit">kcal</span>
                     <span class="measure-chip">${measureText}</span>
                 </div>
                 <!-- 三大营养素（按基础单位） -->
@@ -173,6 +224,10 @@ function foodCardHTML(food, index) {
                     <span class="note-label">减脂提示</span>
                     ${food.tip}
                 </div>
+                ${food.science ? `<div class="note-block sci">
+                    <span class="note-label">科普</span>
+                    ${esc(food.science)}
+                </div>` : ''}
             </div>
 
             <div class="card-actions">
@@ -372,9 +427,7 @@ function renderCalcList(items) {
     const list = document.getElementById('calcList');
     list.innerHTML = items.map(it => {
         const food = getFood(it.id);
-        const base = food.measure === 'weight'
-            ? `每 100g ${food.cal} 大卡`
-            : `${food.cal} 大卡 / 1 ${food.unit}`;
+        const base = foodBaseText(food);
         const qtyUnit = food.measure === 'weight' ? 'g' : food.unit;
         return `
             <div class="calc-row" data-id="${food.id}">
@@ -389,7 +442,7 @@ function renderCalcList(items) {
                     <span class="qty-unit">${qtyUnit}</span>
                     <div class="qty-error">请输入大于 0 的${food.measure === 'weight' ? '克数' : '整数份数'}</div>
                 </div>
-                <div class="row-sub" data-sub="${food.id}">0 <span>大卡</span></div>
+                <div class="row-sub" data-sub="${food.id}">0 <span>kcal</span></div>
                 <button class="row-del" data-del="${food.id}" aria-label="删除">✕</button>
             </div>
         `;
@@ -408,7 +461,7 @@ function updateCalcRow(food, qty) {
     row.classList.toggle('error', !valid);
     row.querySelector('.qty-input').classList.toggle('invalid', !valid);
     const sub = valid ? calcSub(food, Number(qty)) : 0;
-    row.querySelector('.row-sub').innerHTML = `${sub} <span>大卡</span>`;
+    row.querySelector('.row-sub').innerHTML = `${sub} <span>kcal</span>`;
 }
 
 /** 清单行事件：改数量实时重算 / 删除 */
@@ -459,7 +512,7 @@ function renderCalcSummary(items) {
     catBox.innerHTML = `<h4>分类小计</h4>` + (cats.length
         ? cats.map(([k, v]) => {
             const c = CATEGORIES.find(x => x.key === k);
-            return `<div class="cat-item"><span>${c ? c.emoji + ' ' + c.name : k}</span><b>${v} 大卡</b></div>`;
+            return `<div class="cat-item"><span>${c ? c.emoji + ' ' + c.name : k}</span><b>${v} kcal</b></div>`;
         }).join('')
         : `<p class="no-sub">修正数量后显示小计</p>`);
 
@@ -482,7 +535,7 @@ function renderTotalBox(total, validCount, invalidCount) {
         box.innerHTML = `
             <div class="total-label">本餐预估总热量</div>
             <div class="total-num">—</div>
-            <div class="total-unit">大卡 kcal</div>
+            <div class="total-unit">kcal（千卡）</div>
             <span class="level-badge">${label}</span>
             <p class="level-hint">${hint}</p>
         `;
@@ -497,7 +550,7 @@ function renderTotalBox(total, validCount, invalidCount) {
     box.innerHTML = `
         <div class="total-label">本餐预估总热量</div>
         <div class="total-num">${total}</div>
-        <div class="total-unit">大卡 kcal</div>
+        <div class="total-unit">kcal（千卡）</div>
         <span class="level-badge">${label}</span>
         <p class="level-hint">${hint}</p>
         ${invalidCount > 0 ? `<p class="level-hint warn">⚠ 有 ${invalidCount} 项数量不合法，修正后才能保存</p>` : ''}
@@ -534,7 +587,8 @@ function saveCalcToRecords() {
             foodId: f.id, name: f.name, emoji: f.emoji, category: f.category,
             unit: f.unit, measure: f.measure, cal: f.cal,
             qty: Number(it.qty),
-            sub: calcSub(f, it.qty),   // 保存时快照
+            grams: estGrams(f, it.qty),   // 估算克重
+            sub: calcSub(f, it.qty),      // 保存时快照
         });
     });
     saveLS(LS_KEYS.records, records);
@@ -727,7 +781,7 @@ function renderDayCard(g) {
             <div class="day-head">
                 <span class="day-label">${g.label}</span>
                 <span class="day-date">${g.date}</span>
-                <span class="day-total">${g.total} 大卡</span>
+                <span class="day-total">${g.total} kcal</span>
             </div>
             ${g.meals.map(mg => `
                 <div class="meal-group">
@@ -750,21 +804,23 @@ function recRowHTML(r) {
     const emoji = f ? f.emoji : r.emoji;
     const qtyUnit = (f ? f.measure : r.measure) === 'weight' ? 'g' : (f ? f.unit : r.unit);
     const base = f
-        ? (f.measure === 'weight' ? `每 100g ${f.cal} 大卡` : `${f.cal} 大卡 / 1 ${f.unit}`)
+        ? (f.measure === 'weight'
+            ? `${r.qty} g · ${foodBaseText(f)}`
+            : `${foodBaseText(f)} · 约 ${estGrams(f, r.qty)} g`)
         : '食物已下架，数据为保存快照';
     return `
         <div class="calc-row rec-row" data-id="${r.id}" data-ts="${r.ts}">
             <span class="row-emoji">${emoji}</span>
             <div class="row-info">
-                <div class="row-name">${name}</div>
+                <div class="row-name">${esc(name)}</div>
                 <div class="row-base">${base}</div>
             </div>
             <div class="row-qty">
-                <input type="number" class="qty-input" data-rec="${r.id}" min="1" step="1" value="${r.qty}">
-                <span class="qty-unit">${qtyUnit}</span>
+                <input type="number" class="qty-input" data-rec="${r.id}" min="1" step="1" value="${esc(r.qty)}">
+                <span class="qty-unit">${esc(qtyUnit)}</span>
                 <div class="qty-error">请输入大于 0 的${(f ? f.measure : r.measure) === 'weight' ? '克数' : '整数份数'}</div>
             </div>
-            <div class="row-sub">${recSub(r)} <span>大卡</span></div>
+            <div class="row-sub">${recSub(r)} <span>kcal</span></div>
             <button class="row-del" data-delrec="${r.id}" aria-label="删除">✕</button>
         </div>
     `;
@@ -795,7 +851,7 @@ function bindRecEvents(groups) {
             row.classList.toggle('error', !valid);
             input.classList.toggle('invalid', !valid);
             row.querySelector('.row-sub').innerHTML =
-                `${valid ? recSub(rec) : 0} <span>大卡</span>`;
+                `${valid ? recSub(rec) : 0} <span>kcal</span>`;
         });
         input.addEventListener('change', () => {
             saveLS(LS_KEYS.records, all);
@@ -828,8 +884,8 @@ function openQuickRecord(food) {
     document.getElementById('quickFood').innerHTML = `
         <span class="mf-emoji">${food.emoji}</span>
         <div>
-            <div class="mf-name">${food.name}</div>
-            <div class="mf-base">${food.cal} 大卡 / ${isW ? '100g' : '1 ' + food.unit}</div>
+            <div class="mf-name">${esc(food.name)}</div>
+            <div class="mf-base">${foodBaseText(food)}${food.measure === 'count' ? ' · 约 ' + estGrams(food, food.measure === 'weight' ? 100 : 1) + ' g' : ''}</div>
         </div>
     `;
     const qty = document.getElementById('quickQty');
@@ -846,7 +902,7 @@ function updateQuickSub() {
     const ok = quickFood && isFinite(qty) && qty > 0 &&
         (quickFood.measure === 'weight' || Number.isInteger(qty));
     const sub = ok ? calcSub(quickFood, qty) : 0;
-    document.getElementById('quickSub').textContent = ok ? `预计 ${sub} 大卡` : '请输入大于 0 的数量';
+    document.getElementById('quickSub').textContent = ok ? `预计 ${sub} kcal` : '请输入大于 0 的数量';
     document.getElementById('quickOk').disabled = !ok;
 }
 
@@ -864,7 +920,8 @@ function confirmQuickRecord() {
         date: today, meal,
         foodId: quickFood.id, name: quickFood.name, emoji: quickFood.emoji,
         category: quickFood.category, unit: quickFood.unit, measure: quickFood.measure,
-        cal: quickFood.cal, qty, sub: calcSub(quickFood, qty),
+        cal: quickFood.cal, qty, grams: estGrams(quickFood, qty),
+        sub: calcSub(quickFood, qty),
     });
     saveLS(LS_KEYS.records, records);
     closeQuickRecord();
@@ -895,20 +952,23 @@ function openRecordDetail(rec) {
             <div class="macro-item"><b>${f.c}</b><span>碳水 g</span></div>
             <div class="macro-item"><b>${f.f}</b><span>脂肪 g</span></div>
         </div>` : '';
+    const sciHTML = f && f.science ? `
+        <div class="detail-note tip"><b>科普短句</b>${esc(f.science)}<em class="notice-inline">仅供个人减脂参考，不构成医疗建议</em></div>` : '';
 
     document.getElementById('detailBody').innerHTML = `
         <div class="detail-head">
             <div class="detail-emoji">${emoji}</div>
             <div>
-                <div class="detail-name">${name}</div>
-                <div class="detail-meta">${rec.date} · ${MEAL_EMOJI[rec.meal]} ${rec.meal} · ${qty} ${measure === 'weight' ? 'g' : unit}</div>
+                <div class="detail-name">${esc(name)}</div>
+                <div class="detail-meta">${rec.date} · ${MEAL_EMOJI[rec.meal]} ${rec.meal} · ${qty} ${measure === 'weight' ? 'g' : unit}${f && f.measure === 'count' ? '（约 ' + estGrams(f, qty) + ' g）' : ''}</div>
             </div>
         </div>
-        <div class="detail-cal">本次摄入 <b>${sub}</b> 大卡</div>
+        <div class="detail-cal">本次摄入 <b>${sub}</b> kcal</div>
         ${macroHTML}
-        <div class="tags-row" style="justify-content:flex-start;">${f ? f.tags.map(t => `<span class="tag-chip">${t}</span>`).join('') : '<span class="tag-chip">下架食物</span>'}</div>
-        <div class="detail-note"><b>营养要点</b>${nutrition}</div>
-        <div class="detail-note tip"><b>减脂提示</b>${tip}</div>
+        <div class="tags-row" style="justify-content:flex-start;">${f ? f.tags.map(t => `<span class="tag-chip">${esc(t)}</span>`).join('') : '<span class="tag-chip">下架食物</span>'}</div>
+        <div class="detail-note"><b>营养要点</b>${esc(nutrition)}</div>
+        <div class="detail-note tip"><b>减脂提示</b>${esc(tip)}</div>
+        ${sciHTML}
     `;
     document.getElementById('detailModal').classList.add('show');
 }
@@ -946,6 +1006,18 @@ function bindRecordActions() {
  * 模块四：关于页
  * ========================================================== */
 
+/** 关于页：单位换算表（数据来自 UNIT_INFO，单一数据源） */
+function renderUnitTable() {
+    const box = document.getElementById('unitTable');
+    if (!box) return;
+    box.innerHTML = Object.entries(UNIT_INFO).map(([k, v]) => `
+        <div class="unit-item">
+            <span class="u-k">${esc(k)}</span>
+            <span class="u-v">${v.grams} g${v.note ? ' · ' + esc(v.note) : ''}</span>
+        </div>
+    `).join('');
+}
+
 /** 清除全部本地数据（收藏 + 计算器 + 饮食记录） */
 function bindAboutActions() {
     document.getElementById('clearAllBtn').addEventListener('click', () => {
@@ -968,15 +1040,26 @@ function bindAboutActions() {
     });
 }
 
+/** 📷 拍照识别（模拟版）占位：后续模块上线 */
+function bindScanPlaceholder() {
+    const cam = document.getElementById('camBtn');
+    if (!cam) return;
+    cam.addEventListener('click', () => {
+        showToast('📷 拍照识别（模拟版）将在后续模块上线，敬请期待～');
+    });
+}
+
 /* ==========================================================
  * 启动
  * ========================================================== */
 document.addEventListener('DOMContentLoaded', () => {
+    migrateLegacyLS();      // 旧数据无损迁移到带版本号的 key
     bindTabs();
     renderFilterTags();
     renderFoodGrid();
     bindSearch();
     bindSort();
+    bindScanPlaceholder();  // 🍜 拍照识别按钮（占位）
     bindCalcActions();      // 模块二：计算器按钮
     renderCalculator();     // 模块二：购物车（含 localStorage 恢复）
     updateTabBadge();       // 购物车徽标
@@ -984,4 +1067,5 @@ document.addEventListener('DOMContentLoaded', () => {
     renderRecords();        // 模块三：饮食记录初始化
     updateRecBadge();       // 今日合计徽标
     bindAboutActions();     // 模块四：关于页数据管理
+    renderUnitTable();      // 模块四：单位换算表
 });

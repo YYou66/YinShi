@@ -20,10 +20,14 @@
                     <p>小手账 · 记每一口</p>
                 </div>
             </div>
-            <!-- 四个页面的 Tab 切换 -->
+            <!-- 八大模块 Tab 切换（可横向滚动） -->
             <nav class="tab-nav" role="tablist">
                 <button class="tab-btn active" data-page="food">🍜 食物库</button>
                 <button class="tab-btn" data-page="calculator">🧮 热量计算器 <span class="tab-badge hidden" id="calcBadge">0</span></button>
+                <button class="tab-btn" data-page="cuisines">🍲 八大菜系</button>
+                <button class="tab-btn" data-page="brands">🏪 品牌热量库</button>
+                <button class="tab-btn" data-page="sport">🏃 运动消耗</button>
+                <button class="tab-btn" data-page="recipe">🥗 营养食谱</button>
                 <button class="tab-btn" data-page="records">📖 饮食记录 <span class="tab-badge hidden" id="recBadge">0</span></button>
                 <button class="tab-btn" data-page="about">💬 关于</button>
             </nav>
@@ -39,10 +43,11 @@
                 <p>翻翻手账，找找今天想吃什么～</p>
             </div>
 
-            <!-- 搜索框 -->
+            <!-- 搜索框 + 拍照识别入口 -->
             <div class="search-box">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="searchInput" placeholder="搜索食物名称，比如「奶茶」「鸡排」…" autocomplete="off">
+                <button class="cam-btn" id="camBtn" title="拍照识别（模拟版）" aria-label="拍照识别">📷</button>
                 <button class="search-clear" id="searchClear" aria-label="清空搜索">✕</button>
             </div>
 
@@ -77,7 +82,7 @@
         <section class="page" id="page-calculator">
             <div class="page-head">
                 <h2>热量计算器</h2>
-                <p>加加减减，看看这一顿吃进了多少大卡～</p>
+                <p>加加减减，看看这一顿吃进了多少 kcal～</p>
             </div>
 
             <!-- 购物车空状态 -->
@@ -114,6 +119,47 @@
             </div>
         </section>
 
+        <!-- ================= 模块五：八大菜系（建设中） ================= -->
+        <section class="page" id="page-cuisines">
+            <div class="building-card">
+                <div class="building-emoji">🍲</div>
+                <h3>八大菜系 · 建设中</h3>
+                <p>鲁 / 川 / 粤 / 苏 / 闽 / 浙 / 湘 / 徽，每个菜系的地域、口味、辣度与代表菜卡片即将上线～</p>
+                <button class="empty-btn" onclick="switchPage('food')">先逛逛食物库 →</button>
+            </div>
+        </section>
+
+        <!-- ================= 模块六：品牌热量库（建设中） ================= -->
+        <section class="page" id="page-brands">
+            <div class="building-card">
+                <div class="building-emoji">🏪</div>
+                <h3>品牌热量库 · 建设中</h3>
+                <p>蜜雪冰城 / 喜茶 / 瑞幸 / 库迪 / 汉堡王 / 达美乐…常见品牌餐品热量估算即将上线。</p>
+                <p class="building-note">估算值，以品牌官方小程序 / 包装为准</p>
+                <button class="empty-btn" onclick="switchPage('food')">先逛逛食物库 →</button>
+            </div>
+        </section>
+
+        <!-- ================= 模块七：运动消耗（建设中） ================= -->
+        <section class="page" id="page-sport">
+            <div class="building-card">
+                <div class="building-emoji">🏃</div>
+                <h3>运动消耗 · 建设中</h3>
+                <p>设置体重，选动作（跑步 / 跳绳 / 器械…），估算「吃掉的热量要动多久才消耗掉」～</p>
+                <button class="empty-btn" onclick="switchPage('food')">先逛逛食物库 →</button>
+            </div>
+        </section>
+
+        <!-- ================= 模块八：营养食谱（建设中） ================= -->
+        <section class="page" id="page-recipe">
+            <div class="building-card">
+                <div class="building-emoji">🥗</div>
+                <h3>营养食谱 · 建设中</h3>
+                <p>每日营养目标 + 低卡三餐模板 + 早/午/晚/加餐推荐，一键记进饮食记录～</p>
+                <button class="empty-btn" onclick="switchPage('food')">先逛逛食物库 →</button>
+            </div>
+        </section>
+
         <!-- ================= 模块三：饮食记录 ================= -->
         <section class="page" id="page-records">
             <div class="page-head">
@@ -137,7 +183,7 @@
                         <span class="today-label">今日合计</span>
                         <div class="today-num-row">
                             <span class="today-num" id="todayNum">0</span>
-                            <span class="today-unit">大卡</span>
+                            <span class="today-unit">kcal</span>
                         </div>
                     </div>
                     <span class="level-badge" id="todayLevel"></span>
@@ -169,7 +215,7 @@
                     <span class="about-emoji">🥗</span>
                     <h3>这是什么</h3>
                     <p>一个轻量的「小吃热量卡片库」：收录 100 款常见食物的热量与营养手账卡，
-                       配套热量计算器与饮食记录，帮你估算每一顿吃进去多少大卡、怎么吃更聪明。</p>
+                       配套热量计算器与饮食记录，帮你估算每一顿吃进去多少热量（kcal）、怎么吃更聪明。</p>
                 </div>
 
                 <!-- 三步使用 -->
@@ -192,14 +238,17 @@
                         <li>火锅食材 → 按<em>100g</em>（输入克数自动换算）</li>
                         <li>烘焙点心 → 按<em>个</em> · 街边小吃 → 按<em>份</em></li>
                         <li>三大营养素（蛋白 / 碳水 / 脂肪）均按该食物的基础计量单位</li>
+                        <li>热量单位统一为 <em>kcal（千卡）</em></li>
                     </ul>
+                    <p class="unit-hint">「约 X g」为常见做法的估算克重：</p>
+                    <div class="unit-table" id="unitTable"></div>
                 </div>
 
                 <!-- 数据与隐私 -->
                 <div class="about-card">
                     <span class="about-emoji">🔒</span>
                     <h3>数据与隐私</h3>
-                    <p>收藏、计算器、饮食记录全部只存在你浏览器的 localStorage 里，
+                    <p>收藏、计算器、饮食记录全部只存在你浏览器的 localStorage 里（带版本前缀，数据可平滑升级），
                        不上传任何服务器，刷新页面不丢失。</p>
                     <div class="data-actions">
                         <button class="danger-btn" id="clearAllBtn">🗑 清除全部本地数据</button>
@@ -217,7 +266,7 @@
                 </div>
             </div>
 
-            <p class="about-footer-note">饮食热量记录站 · 原生 HTML / CSS / JS 构建 · v1.0</p>
+            <p class="about-footer-note">饮食热量记录站 · 原生 HTML / CSS / JS 构建 · v2.0</p>
         </section>
 
     </main>
@@ -225,7 +274,7 @@
     <!-- ================= 页脚 ================= -->
     <footer class="site-footer">
         <div class="container">
-            <p>🖊 饮食热量记录站 · 所有热量数据仅为估算值<br>仅供个人减脂参考，不构成医疗建议。</p>
+            <p>🖊 饮食热量记录站 · 热量为估算值，仅供个人减脂参考，不构成医疗建议；品牌数据以官方为准。</p>
         </div>
     </footer>
 
@@ -248,7 +297,7 @@
                     <option value="加餐" selected>🍬 加餐</option>
                 </select>
             </div>
-            <p class="modal-sub" id="quickSub">预计 0 大卡</p>
+            <p class="modal-sub" id="quickSub">预计 0 kcal</p>
             <div class="modal-actions">
                 <button class="modal-btn-cancel" id="quickCancel">取消</button>
                 <button class="modal-btn-ok" id="quickOk">确认记录</button>

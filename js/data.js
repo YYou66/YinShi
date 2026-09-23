@@ -12,11 +12,17 @@
  *     - measure   : 计量方式
  *                    'count'  → 按份/个/杯 计数
  *                    'weight' → 按 100g 计重（热量为每 100g 的值）
- *     - cal       : 热量（大卡 kcal），对应上面的单位
+ *     - cal       : 热量（kcal），对应上面的单位
  *     - p / c / f : 蛋白质 / 碳水 / 脂肪（克），按该食物的基础单位
  *     - tags      : 标签数组（手账风小标签，2~3 个）
  *     - nutrition : 营养要点（一句话）
  *     - tip       : 减脂提示（一句话）
+ *     【可选扩展字段（后续模块使用，不影响旧数据）】
+ *     - grams     : 单个份量的估算克重（无则用 UNIT_INFO 换算表兜底）
+ *     - spicy     : 辣度（不辣/微辣/中辣/特辣，见 SPICY_LEVELS）
+ *     - science   : 科普短句（仅供个人减脂参考，不构成医疗建议）
+ *     - cuisine   : 菜系 key（八大菜系，见 CUISINE_LIB）
+ *     - region/province/city : 地域归属（全国饮食库使用）
  *  3. 所有数值均为估算值，仅供个人减脂参考。
  * ========================================================== */
 
@@ -27,8 +33,90 @@ const CATEGORIES = [
     { key: 'drink',     name: '奶茶饮品', emoji: '🧋' },
     { key: 'breakfast', name: '早餐面点', emoji: '🥟' },
     { key: 'hotpot',    name: '火锅食材', emoji: '🥘' },
-    { key: 'fitness',   name: '减脂人最爱', emoji: '🥗' },
+    { key: 'fitness',   name: '低卡优选', emoji: '🥗' },
     { key: 'home',      name: '家常饭菜', emoji: '🍚' },
+];
+
+/* ==========================================================
+ * 设计系统常量（全局数据模型，供所有模块复用）
+ * ========================================================== */
+
+/* ---------- 单位换算表：杯 / 个 / 碗 / 串 / 份 / 克 ---------- */
+/* 克重为常见做法的估算值，用于「约 X g」的展示与粗略换算 */
+const UNIT_INFO = {
+    '杯':   { grams: 500, note: '约 500ml', kind: '液体' },
+    '碗':   { grams: 350, note: '约 350g',  kind: '汤食' },
+    '个':   { grams: 80,  note: '约 80g（大小差异大）', kind: '一般' },
+    '只':   { grams: 60,  note: '约 60g',   kind: '一般' },
+    '根':   { grams: 30,  note: '约 30g',   kind: '条状' },
+    '串':   { grams: 30,  note: '串净重约 30g', kind: '烤串' },
+    '片':   { grams: 20,  note: '约 20g',   kind: '片状' },
+    '块':   { grams: 50,  note: '约 50g',   kind: '块状' },
+    '张':   { grams: 80,  note: '约 80g',   kind: '饼类' },
+    '套':   { grams: 200, note: '约 200g',  kind: '套餐' },
+    '笼':   { grams: 240, note: '一笼约 240g（约 6 只）', kind: '笼蒸' },
+    '盘':   { grams: 200, note: '约 200g',  kind: '盘装' },
+    '半颗': { grams: 40,  note: '约 40g',   kind: '一般' },
+    '份':   { grams: 150, note: '约 150g（店与店差异大）', kind: '一般' },
+};
+
+/** 取食物的每份估算克重（计重食物直接用克数） */
+function estGrams(food, qty) {
+    if (!food) return 0;
+    if (food.measure === 'weight') return Math.round(Number(qty) || 0);
+    const per = (typeof food.grams === 'number' && food.grams > 0)
+        ? food.grams
+        : (UNIT_INFO[food.unit] ? UNIT_INFO[food.unit].grams : 100);
+    return Math.round(per * (Number(qty) || 0));
+}
+
+/* ---------- 辣度统一：不辣 / 微辣 / 中辣 / 特辣 ---------- */
+const SPICY_LEVELS = [
+    { key: '不辣', emoji: '🤍', color: '#8FAF84' },
+    { key: '微辣', emoji: '🟢', color: '#7FB069' },
+    { key: '中辣', emoji: '🟠', color: '#E0913E' },
+    { key: '特辣', emoji: '🔴', color: '#D24D3B' },
+];
+function spicyMeta(name) {
+    return SPICY_LEVELS.find(s => s.key === name) || SPICY_LEVELS[0];
+}
+
+/* ---------- 八大菜系登记表（代表菜数据在「全国饮食库」单独交付） ---------- */
+const CUISINE_LIB = [
+    { key: 'lu',    name: '鲁菜', region: '山东',           flavor: '咸鲜',      spicy: '不辣', sweet: '微甜', desc: '黄河流域菜系，善用葱姜与酱料，讲究火候与汤头' },
+    { key: 'chuan', name: '川菜', region: '四川、重庆',     flavor: '麻辣',      spicy: '特辣', sweet: '不甜', desc: '一菜一格、百菜百味，麻辣鲜香是招牌' },
+    { key: 'yue',   name: '粤菜', region: '广东、广西、港澳', flavor: '清淡鲜甜', spicy: '不辣', sweet: '清甜', desc: '讲究食材本味，清淡养生，点心一绝' },
+    { key: 'su',    name: '苏菜', region: '江苏',           flavor: '咸中带甜',  spicy: '不辣', sweet: '偏甜', desc: '刀工精细、火候考究，浓淡适宜' },
+    { key: 'min',   name: '闽菜', region: '福建',           flavor: '鲜香',      spicy: '微辣', sweet: '微甜', desc: '擅长海鲜与汤羹，佛跳墙是名片' },
+    { key: 'zhe',   name: '浙菜', region: '浙江',           flavor: '清爽',      spicy: '不辣', sweet: '微甜', desc: '清新爽口，注重食材原味与河鲜' },
+    { key: 'xiang', name: '湘菜', region: '湖南',           flavor: '香辣',      spicy: '特辣', sweet: '不甜', desc: '香辣浓郁，腊味与剁椒是灵魂' },
+    { key: 'hui',   name: '徽菜', region: '安徽',           flavor: '咸鲜',      spicy: '微辣', sweet: '微甜', desc: '讲究用油用色，重火功，火腿与山珍见长' },
+];
+function getCuisine(key) {
+    return CUISINE_LIB.find(c => c.key === key) || null;
+}
+
+/* ---------- 营养素分类：高蛋白 / 高纤维 / 低GI / 高钙 / 高铁 / 维C / 钾 / 低脂 / 低糖 ---------- */
+/* 判定 = 显式字段数据（fiber/sugar/gi/calcium/iron/vitC/potassium）优先，否则按 p/c/f 与标签兜底 */
+const NUTRI_GROUPS = [
+    { id: 'high-protein', name: '高蛋白',    emoji: '🥩', test: f =>
+        (typeof f.p === 'number' && f.p >= 12) || (f.tags || []).includes('高蛋白') },
+    { id: 'high-fiber',   name: '高膳食纤维', emoji: '🥦', test: f =>
+        (typeof f.fiber === 'number' && f.fiber >= 4.5) || (f.tags || []).includes('高纤维') },
+    { id: 'low-gi',       name: '低 GI',     emoji: '🌾', test: f =>
+        (typeof f.gi === 'number' && f.gi <= 55) || (f.tags || []).some(t => t.includes('低GI')) },
+    { id: 'high-calcium', name: '高钙',      emoji: '🥛', test: f =>
+        (typeof f.calcium === 'number' && f.calcium >= 200) || (f.tags || []).some(t => t.includes('高钙') || t.includes('奶') || t.includes('乳')) },
+    { id: 'high-iron',    name: '高铁',      emoji: '🩸', test: f =>
+        (typeof f.iron === 'number' && f.iron >= 2) || (f.tags || []).some(t => t.includes('铁')) },
+    { id: 'high-vitc',    name: '富含维C',   emoji: '🍊', test: f =>
+        (typeof f.vitC === 'number' && f.vitC >= 25) || (f.tags || []).some(t => t.includes('维C') || t.includes('维c')) },
+    { id: 'high-k',       name: '富含钾',    emoji: '🍌', test: f =>
+        (typeof f.potassium === 'number' && f.potassium >= 250) || (f.tags || []).some(t => t.includes('钾')) },
+    { id: 'low-fat',      name: '低脂',      emoji: '🥗', test: f =>
+        (typeof f.f === 'number' && f.f <= 4) || (f.tags || []).includes('低脂') },
+    { id: 'low-sugar',    name: '低糖',      emoji: '🍬', test: f =>
+        (typeof f.sugar === 'number' && f.sugar <= 5) || (f.tags || []).some(t => t.includes('低糖')) },
 ];
 
 /* ---------- 食物库（共 100 款：6 个分类各 15 款 + 家常饭菜 10 款） ---------- */
@@ -88,14 +176,16 @@ const FOODS = [
         unit: '份', measure: 'count', cal: 220, p: 10, c: 20, f: 11,
         tags: ['发酵豆制品', '香辣', '解馋'],
         nutrition: '油炸豆腐吸汁，酱料足热量不低',
-        tip: '6 块解馋即可，汤少喝点'
+        tip: '6 块解馋即可，汤少喝点',
+        science: '豆腐发酵会产生独特风味物质，但油炸与重酱才是热量来源，选清蒸类豆制品更优'
     },
     {
         id: 9, name: '关东煮', emoji: '🥣', category: 'street',
         unit: '份', measure: 'count', cal: 150, p: 8, c: 14, f: 6,
         tags: ['清爽低卡', '便利店', '汤食'],
         nutrition: '蔬菜豆腐为主，汤底清爽',
-        tip: '选萝卜白菜豆腐串，避开丸类淀粉串'
+        tip: '选萝卜白菜豆腐串，避开丸类淀粉串',
+        science: '关东煮本身清爽，但深褐色汤底往往偏咸，汤别喝太多'
     },
     {
         id: 10, name: '淀粉肠', emoji: '🌭', category: 'street',
@@ -116,7 +206,9 @@ const FOODS = [
         unit: '个', measure: 'count', cal: 180, p: 2, c: 40, f: 1,
         tags: ['粗粮碳水', '高纤维', '天然甜'],
         nutrition: '天然粗粮，膳食纤维丰富',
-        tip: '当主食吃别当零食，甜度很给力'
+        tip: '当主食吃别当零食，甜度很给力',
+        science: '红薯升糖速度远低于等量甜点，但炭火烤制会流失部分水分、浓缩糖分，注意别一次吃太多',
+        grams: 200
     },
     {
         id: 63, name: '冰糖葫芦', emoji: '🍡', category: 'street',
@@ -253,7 +345,9 @@ const FOODS = [
         unit: '杯', measure: 'count', cal: 450, p: 2, c: 70, f: 15,
         tags: ['奶茶人气', '高糖', '高卡'],
         nutrition: '波霸 / 奶精 / 糖浆三合一，液体热量不低',
-        tip: '选无糖 + 去波霸，热量瞬间减半'
+        tip: '选无糖 + 去波霸，热量瞬间减半',
+        science: '一杯 500ml 全糖珍珠奶茶含糖通常超过一天建议糖摄入量，高糖饮品可能更容易致痘',
+        grams: 500
     },
     {
         id: 22, name: '芋泥啵啵奶茶', emoji: '🥤', category: 'drink',
@@ -574,7 +668,8 @@ const FOODS = [
         unit: '份', measure: 'count', cal: 165, p: 31, c: 2, f: 4,
         tags: ['高蛋白', '低脂', '减脂首选'],
         nutrition: '低脂高蛋白，减脂黄金食材',
-        tip: '少油煎 + 黑胡椒，简单又美味'
+        tip: '少油煎 + 黑胡椒，简单又美味',
+        science: '鸡胸是低脂高蛋白的标杆食材，饱腹感强，但别过度依赖单一蛋白质来源'
     },
     {
         id: 52, name: '无糖希腊酸奶', emoji: '🥛', category: 'fitness',
@@ -588,7 +683,8 @@ const FOODS = [
         unit: '根', measure: 'count', cal: 110, p: 3, c: 24, f: 1,
         tags: ['粗粮', '高纤维', '自然甜'],
         nutrition: '优质粗粮碳水，饱腹感强',
-        tip: '代替精制主食，红薯同理'
+        tip: '代替精制主食，红薯同理',
+        science: '玉米保留完整谷粒，膳食纤维与B族维生素优于精白米面'
     },
     {
         id: 54, name: '白灼虾', emoji: '🍤', category: 'fitness',
@@ -602,7 +698,8 @@ const FOODS = [
         unit: '份', measure: 'count', cal: 55, p: 5, c: 8, f: 1,
         tags: ['高纤维', '低卡', '饱腹'],
         nutrition: '高纤维十字花科，饱腹低卡',
-        tip: '淋一点生抽橄榄油，更好下口'
+        tip: '淋一点生抽橄榄油，更好下口',
+        science: '西兰花在同属蔬菜中蛋白质与矿物质较突出，并含硫代葡萄糖苷类物质，长期适量食用或有益'
     },
     {
         id: 56, name: '糙米饭', emoji: '🍚', category: 'fitness',
@@ -630,7 +727,8 @@ const FOODS = [
         unit: '100g', measure: 'weight', cal: 208, p: 20, c: 0, f: 14,
         tags: ['优质脂肪', '欧米伽3', '刺身'],
         nutrition: '欧米伽-3 脂肪酸，优质脂肪来源',
-        tip: '一次 100g，轻蘸酱油芥末'
+        tip: '一次 100g，轻蘸酱油芥末',
+        science: '三文鱼富含欧米伽-3 脂肪酸与优质蛋白，但脂肪不低，减脂期建议控制在 100g 左右'
     },
     {
         id: 60, name: '魔芋凉拌面', emoji: '🍜', category: 'fitness',
@@ -672,7 +770,8 @@ const FOODS = [
         unit: '片', measure: 'count', cal: 90, p: 4, c: 15, f: 1,
         tags: ['粗粮', '高纤维', '早餐搭档'],
         nutrition: '全麦粉做的真全麦，纤维保留',
-        tip: '看配料表第一位要全麦粉'
+        tip: '看配料表第一位要全麦粉',
+        science: '真全麦面包用全麦粉而非「全麦风味」改良剂，纤维与B族维生素保留更完整'
     },
 
     /* ==================== 家常饭菜（日常三餐） ==================== */

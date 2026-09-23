@@ -105,8 +105,13 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 
 .brand p { font-size: 12px; color: var(--text-light); letter-spacing: 0.18em; }
 
-/* Tab 导航 */
-.tab-nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* Tab 导航：所有按钮始终换行可见可点，不依赖隐藏的横向滚动 */
+.tab-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
 
 .tab-btn {
     padding: 8px 18px;
@@ -115,6 +120,7 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
     letter-spacing: 0.05em;
     color: var(--text-light);
     border-radius: 999px;
+    white-space: nowrap;
     transition: all 0.25s ease;
 }
 
@@ -197,6 +203,26 @@ main { flex: 1; padding: 40px 0 64px; }
 }
 
 .search-clear.show { display: flex; }
+
+/* 📷 拍照识别按钮 */
+.cam-btn {
+    font-size: 17px;
+    width: 34px; height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--blue-soft);
+    border: 1.5px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.cam-btn:hover {
+    background: var(--blue);
+    transform: scale(1.08);
+}
+
+.search-clear:hover { background: var(--border); color: #fff; }
 .search-clear:hover { background: var(--blue-soft); color: var(--blue-deep); }
 
 /* ==========================================================
@@ -436,6 +462,22 @@ main { flex: 1; padding: 40px 0 64px; }
 .note-block .note-label { color: var(--text-muted); }
 .note-block.tip .note-label { color: var(--accent-deep); }
 
+/* 科普短句（首页卡片 + 详情页） */
+.note-block.sci {
+    background: rgba(110, 151, 171, 0.1);
+    border-color: rgba(110, 151, 171, 0.4);
+}
+
+.note-block.sci .note-label { color: var(--blue-deep); }
+
+.notice-inline {
+    display: block;
+    font-style: normal;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
 /* 卡片底部按钮组 */
 .card-actions {
     display: flex;
@@ -504,6 +546,17 @@ main { flex: 1; padding: 40px 0 64px; }
 .building-card h3 { font-size: 19px; font-weight: 700; letter-spacing: 0.06em; margin-bottom: 8px; }
 
 .building-card p { font-size: 14px; color: var(--text-light); }
+
+.building-note {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 999px;
+    padding: 4px 14px;
+}
 
 /* ==========================================================
  * 页脚 + 免责声明
@@ -1283,6 +1336,39 @@ main { flex: 1; padding: 40px 0 64px; }
     font-weight: 700;
     color: var(--blue-deep);
 }
+
+/* 单位换算表 */
+.unit-hint { font-size: 12px; color: var(--text-muted); margin: 12px 0 6px; }
+
+.unit-table {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.unit-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.unit-item .u-k {
+    font-weight: 700;
+    color: var(--text);
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--blue-soft);
+    color: var(--blue-deep);
+    font-size: 11.5px;
+}
+
+.unit-item .u-v { color: var(--text-light); margin-left: auto; }
 
 /* 数据管理 */
 .data-actions { margin-top: 16px; }
