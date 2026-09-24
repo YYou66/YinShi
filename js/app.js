@@ -640,7 +640,7 @@ function renderCalcList(items) {
     const list = document.getElementById('calcList');
     list.innerHTML = items.map(it => {
         const food = getFood(it.id);
-        const base = foodBaseText(food);
+        const base = foodBaseText(food) + (food.measure === 'count' ? ` · 约 ${estGrams(food, 1)} g` : '');
         const qtyUnit = food.measure === 'weight' ? 'g' : food.unit;
         return `
             <div class="calc-row" data-id="${food.id}">
@@ -653,9 +653,12 @@ function renderCalcList(items) {
                     <input type="number" class="qty-input" data-qty="${food.id}"
                            min="1" step="1" value="${it.qty}">
                     <span class="qty-unit">${qtyUnit}</span>
-                    <div class="qty-error">请输入大于 0 的${food.measure === 'weight' ? '克数' : '整数份数'}</div>
+                    <div class="qty-error">份数/克重必须大于 0。</div>
                 </div>
-                <div class="row-sub" data-sub="${food.id}">0 <span>kcal</span></div>
+                <div class="row-result">
+                    <div class="row-sub" data-sub="${food.id}">0 <span>kcal</span></div>
+                    <div class="row-macros" data-macro="${food.id}">蛋白 0g · 碳水 0g · 脂肪 0g</div>
+                </div>
                 <button class="row-del" data-del="${food.id}" aria-label="删除">✕</button>
             </div>
         `;
@@ -666,7 +669,7 @@ function renderCalcList(items) {
     bindCalcInputEvents(items);
 }
 
-/** 更新单行：校验 + 小计显示 */
+/** 更新单行：校验 + 小计 + 三大营养素显示 */
 function updateCalcRow(food, qty) {
     const row = document.querySelector(`.calc-row[data-id="${food.id}"]`);
     if (!row) return;
@@ -675,6 +678,10 @@ function updateCalcRow(food, qty) {
     row.querySelector('.qty-input').classList.toggle('invalid', !valid);
     const sub = valid ? calcSub(food, Number(qty)) : 0;
     row.querySelector('.row-sub').innerHTML = `${sub} <span>kcal</span>`;
+    // 单行估算营养素（蛋白 / 碳水 / 脂肪）
+    const m = valid ? macroSub(food, Number(qty)) : null;
+    row.querySelector('.row-macros').textContent =
+        `蛋白 ${m ? m.p : 0}g · 碳水 ${m ? m.c : 0}g · 脂肪 ${m ? m.f : 0}g`;
 }
 
 /** 清单行事件：改数量实时重算 / 删除 */
@@ -729,16 +736,23 @@ function renderCalcSummary(items) {
         }).join('')
         : `<p class="no-sub">修正数量后显示小计</p>`);
 
-    /* ---- 总热量 + 评估 ---- */
+    /* ---- 总热量 + 评估 + 三大营养素合计 ---- */
     const total = validItems.reduce((s, it) => s + calcSub(getFood(it.id), it.qty), 0);
-    renderTotalBox(total, validItems.length, invalidCount);
+    const macroTotal = { p: 0, c: 0, f: 0 };
+    validItems.forEach(it => {
+        const m = macroSub(getFood(it.id), it.qty);
+        macroTotal.p += m.p;
+        macroTotal.c += m.c;
+        macroTotal.f += m.f;
+    });
+    renderTotalBox(total, validItems.length, invalidCount, macroTotal);
 
     /* ---- 保存按钮：有非法数量时禁用 ---- */
     document.getElementById('saveCalcBtn').disabled = invalidCount > 0;
 }
 
-/** 评估分级：<300 轻食 / 300–600 适中 / >600 偏高 */
-function renderTotalBox(total, validCount, invalidCount) {
+/** 评估分级：<300 轻食 / 300–600 适中 / >600 偏高 + 三大营养素合计 */
+function renderTotalBox(total, validCount, invalidCount, macroTotal) {
     const box = document.getElementById('totalBox');
     let level, label, hint;
     if (validCount === 0 && invalidCount > 0) {
@@ -767,6 +781,12 @@ function renderTotalBox(total, validCount, invalidCount) {
         <span class="level-badge">${label}</span>
         <p class="level-hint">${hint}</p>
         ${invalidCount > 0 ? `<p class="level-hint warn">⚠ 有 ${invalidCount} 项数量不合法，修正后才能保存</p>` : ''}
+        ${validCount > 0 && macroTotal ? `
+        <div class="macro-sum">
+            <div class="ms-item"><b>${macroTotal.p}</b><span>💪 蛋白质 g</span></div>
+            <div class="ms-item"><b>${macroTotal.c}</b><span>🍚 碳水 g</span></div>
+            <div class="ms-item"><b>${macroTotal.f}</b><span>🧈 脂肪 g</span></div>
+        </div>` : ''}
     `;
 }
 

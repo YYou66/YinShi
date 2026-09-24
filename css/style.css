@@ -861,6 +861,21 @@ main { flex: 1; padding: 40px 0 64px; }
 
 .row-sub span { font-size: 12px; font-weight: 500; color: var(--text-muted); }
 
+/* 单行：小计 + 估算营养素 */
+.row-result {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    min-width: 96px;
+}
+
+.row-macros {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
 .row-del {
     width: 30px; height: 30px;
     min-width: 30px;
@@ -957,6 +972,31 @@ main { flex: 1; padding: 40px 0 64px; }
 /* 偏高 🔴 */
 .total-box.level-high { background: #F9E5DB; border-color: var(--lv-high); color: #8A4B32; }
 .total-box.level-high .level-badge { background: var(--lv-high); color: #7A3E26; }
+
+/* 一餐三大营养素合计（估算） */
+.macro-sum {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1.5px dashed rgba(89, 74, 62, 0.18);
+}
+
+.macro-sum .ms-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 66px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+}
+
+.macro-sum .ms-item b { font-size: 16px; line-height: 1.2; }
+
+.macro-sum .ms-item span { font-size: 10.5px; opacity: 0.72; }
 
 /* ----- 操作按钮 ----- */
 .calc-actions { display: flex; flex-direction: column; gap: 12px; }
