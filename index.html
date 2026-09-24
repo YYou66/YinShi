@@ -44,15 +44,38 @@
             </div>
 
             <!-- 搜索框 + 拍照识别入口 -->
-            <div class="search-box">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="searchInput" placeholder="搜索食物名称，比如「奶茶」「鸡排」…" autocomplete="off">
-                <button class="cam-btn" id="camBtn" title="拍照识别（模拟版）" aria-label="拍照识别">📷</button>
-                <button class="search-clear" id="searchClear" aria-label="清空搜索">✕</button>
+            <div class="search-wrap">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="搜索食物名称，比如「奶茶」「鸡排」…" autocomplete="off">
+                    <button class="cam-btn" id="camBtn" title="拍照识别（模拟版）" aria-label="拍照识别">📷</button>
+                    <button class="search-clear" id="searchClear" aria-label="清空搜索">✕</button>
+                </div>
+
+                <!-- 搜索历史 / 热门搜索（JS 渲染，聚焦输入框时展开） -->
+                <div class="search-panel hidden" id="searchPanel">
+                    <div class="sp-section" id="spHistoryWrap">
+                        <div class="sp-title">
+                            <span>🕘 搜索历史</span>
+                            <button class="sp-clear" id="clearHistory" aria-label="清除搜索历史">清除</button>
+                        </div>
+                        <div class="sp-chips" id="spHistory"></div>
+                    </div>
+                    <div class="sp-section">
+                        <div class="sp-title"><span>🔥 热门搜索</span></div>
+                        <div class="sp-chips" id="spHot"></div>
+                    </div>
+                </div>
             </div>
 
-            <!-- 筛选标签（JS 渲染：全部 + 6 分类） -->
+            <!-- 分类筛选（JS 渲染：全部 + 7 分类） -->
             <div class="filter-tags" id="filterTags"></div>
+
+            <!-- 营养素分类筛选（JS 渲染：高蛋白 / 高纤维 / 低GI …，可多选叠加） -->
+            <div class="nutri-filter">
+                <span class="nutri-title">🧬 按营养素找</span>
+                <div class="nutri-tags" id="nutriTags"></div>
+            </div>
 
             <!-- 工具栏：结果数 + 排序 -->
             <div class="toolbar">

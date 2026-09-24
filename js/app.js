@@ -43,6 +43,8 @@ const state = {
     sort: 'default',     // 排序：default / high / low
     favorites: loadLS(LS_KEYS.favorites, []),   // 收藏 id 数组
     calcCart: loadLS(LS_KEYS.calcCart, []),     // 计算器购物车
+    nutriFilter: [],                            // 营养素筛选（多选，AND 叠加）
+    searchHistory: loadLS(LS_KEYS.searchHistory, []), // 搜索历史（最近在前）
 };
 
 /* ==========================================================
@@ -161,6 +163,38 @@ function renderFilterTags() {
 }
 
 /* ==========================================================
+ * 渲染：营养素分类筛选（多选叠加，点选/再点取消）
+ * ========================================================== */
+function renderNutriTags() {
+    const box = document.getElementById('nutriTags');
+    if (!box) return;
+    box.innerHTML = NUTRI_GROUPS.map(g => `
+        <button class="nutri-tag ${state.nutriFilter.includes(g.id) ? 'active' : ''}"
+                data-nutri="${g.id}">
+            ${g.emoji} ${g.name}
+        </button>
+    `).join('');
+
+    box.querySelectorAll('.nutri-tag').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.nutri;
+            const i = state.nutriFilter.indexOf(id);
+            if (i > -1) state.nutriFilter.splice(i, 1);
+            else state.nutriFilter.push(id);
+            renderNutriTags();
+            renderFoodGrid();
+        });
+    });
+}
+
+/** 当前激活的营养素筛选项（用于空状态/计数文案） */
+function activeNutriNames() {
+    return state.nutriFilter
+        .map(id => (NUTRI_GROUPS.find(g => g.id === id) || {}).name)
+        .filter(Boolean);
+}
+
+/* ==========================================================
  * 渲染：食物卡片
  * ========================================================== */
 
@@ -169,7 +203,11 @@ function getVisibleFoods() {
     let list = FOODS.filter(f => {
         const okFilter = state.filter === 'all' || f.category === state.filter;
         const okSearch = !state.keyword || f.name.includes(state.keyword);
-        return okFilter && okSearch;
+        const okNutri = state.nutriFilter.every(gid => {
+            const g = NUTRI_GROUPS.find(x => x.id === gid);
+            return g ? g.test(f) : true;
+        });
+        return okFilter && okSearch && okNutri;
     });
 
     if (state.sort === 'high') list = [...list].sort((a, b) => b.cal - a.cal);
@@ -185,7 +223,7 @@ function foodCardHTML(food, index) {
     const measureText = food.measure === 'weight' ? '每 100g' : '1 ' + food.unit;
 
     return `
-        <article class="food-card" style="animation-delay:${index * 40}ms">
+        <article class="food-card clickable" data-id="${food.id}" style="animation-delay:${index * 40}ms">
             <div class="card-head">
                 <span class="cat-chip">${cat.emoji} ${cat.name}</span>
                 <button class="heart-btn ${faved ? 'active' : ''}"
@@ -228,6 +266,9 @@ function foodCardHTML(food, index) {
                     <span class="note-label">科普</span>
                     ${esc(food.science)}
                 </div>` : ''}
+                <div class="detail-link-row">
+                    <button class="detail-link" data-detail="${food.id}">📖 查看详情</button>
+                </div>
             </div>
 
             <div class="card-actions">
@@ -249,16 +290,23 @@ function renderFoodGrid() {
     // 结果计数
     const countEl = document.getElementById('resultCount');
     const total = getVisibleFoods().length;
+    const activeCat = CATEGORIES.find(c => c.key === state.filter);
     countEl.textContent = state.keyword
         ? `「${state.keyword}」找到 ${total} 款`
-        : `共 ${total} 款食物`;
+        : (state.nutriFilter.length
+            ? `${activeNutriNames().join(' + ')} · ${total} 款`
+            : (state.filter !== 'all' && activeCat
+                ? `${activeCat.emoji} ${activeCat.name} · ${total} 款`
+                : `共 ${total} 款食物`));
 
     // 空状态
     if (list.length === 0) {
         empty.classList.remove('hidden');
         document.getElementById('foodEmptyText').textContent = state.keyword
             ? `没有找到「${state.keyword}」相关的食物，换个关键词试试？`
-            : '这个分类下还没有食物，去别的分类看看？';
+            : (state.nutriFilter.length
+                ? `这个营养素组合下还没找到对应食物，试试去掉「${activeNutriNames().join(' / ')}」中的一项？`
+                : '这个分类下还没有食物，去别的分类看看？');
     } else {
         empty.classList.add('hidden');
     }
@@ -289,24 +337,11 @@ function bindCardEvents() {
         });
     });
 
-    /* ＋ 加入计算器：写入购物车（模块二接管显示） */
+    /* ＋ 加入计算器（可复用：卡片 / 详情页 / 后续模块共用） */
     document.querySelectorAll('.btn-add').forEach(btn => {
         btn.addEventListener('click', () => {
-            const id = Number(btn.dataset.calc);
-            const food = getFood(id);
-            const item = state.calcCart.find(i => i.id === id);
-            if (item) {
-                // 计重食物重置为 100g，计数食物 +1 份
-                item.qty = food.measure === 'weight' ? 100 : item.qty + 1;
-            } else {
-                // 计重食物默认按 100g 加入，计数食物默认 1 份
-                state.calcCart.push({ id, qty: food.measure === 'weight' ? 100 : 1 });
-            }
-            saveLS(LS_KEYS.calcCart, state.calcCart);
-            updateTabBadge();
-            showToast(`已加入计算器 · ${food.name}（当前 ${state.calcCart.length} 项）`);
-            // 按钮短暂反馈
             const origin = btn.textContent;
+            addToCalculator(Number(btn.dataset.calc));
             btn.textContent = '✓ 已加入';
             setTimeout(() => { btn.textContent = origin; }, 1200);
         });
@@ -318,11 +353,167 @@ function bindCardEvents() {
             openQuickRecord(getFood(Number(btn.dataset.note)));
         });
     });
+
+    /* 📖 查看详情 / 点卡片打开统一详情模板（食物库 / 菜系 / 品牌共用） */
+    document.querySelectorAll('.detail-link').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openFoodDetail(getFood(Number(btn.dataset.detail)));
+        });
+    });
+    document.querySelectorAll('.food-card.clickable').forEach(card => {
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-add, .btn-note, .heart-btn, .detail-link')) return;
+            openFoodDetail(getFood(Number(card.dataset.id)));
+        });
+    });
+}
+
+/** 加入计算器购物车（计重默认 100g，计数 +1 份） */
+function addToCalculator(id) {
+    const food = getFood(id);
+    if (!food) return null;
+    const item = state.calcCart.find(i => i.id === id);
+    if (item) {
+        item.qty = food.measure === 'weight' ? 100 : item.qty + 1;
+    } else {
+        state.calcCart.push({ id, qty: food.measure === 'weight' ? 100 : 1 });
+    }
+    saveLS(LS_KEYS.calcCart, state.calcCart);
+    updateTabBadge();
+    showToast(`已加入计算器 · ${food.name}（当前 ${state.calcCart.length} 项）`);
+    return food;
 }
 
 /* ==========================================================
- * 搜索框
+ * 统一食物详情模板（食物库 / 八大菜系 / 品牌热量库共用）
  * ========================================================== */
+function openFoodDetail(food) {
+    if (!food) return;
+    const cat = CATEGORIES.find(c => c.key === food.category);
+    const spicy = food.spicy ? spicyMeta(food.spicy) : null;
+    const cc = food.cuisine ? CUISINE_LIB.find(x => x.key === food.cuisine) : null;
+    const nutriHits = NUTRI_GROUPS.filter(g => g.test(food));
+    const gramText = food.measure === 'count'
+        ? '约 ' + estGrams(food, 1) + ' g / 1 ' + food.unit
+        : '按克重计（每 100g）';
+
+    document.getElementById('detailBody').innerHTML = `
+        <div class="detail-head">
+            <div class="detail-emoji">${food.emoji}</div>
+            <div>
+                <div class="detail-name">${esc(food.name)}</div>
+                <div class="detail-meta">
+                    ${cat ? `<span class="cat-chip">${cat.emoji} ${esc(cat.name)}</span>` : ''}
+                    ${spicy ? `<span class="spicy-chip">${spicy.emoji} ${esc(food.spicy)}</span>` : ''}
+                    ${cc ? `<span class="cuisine-chip">🍲 ${esc(cc.name)}</span>` : ''}
+                </div>
+            </div>
+        </div>
+        <div class="detail-calrow">
+            <b>${food.cal}</b> kcal / ${food.measure === 'weight' ? '100g' : '1 ' + food.unit}
+            <span class="measure-chip">${gramText}</span>
+        </div>
+        <div class="macro-row" style="justify-content:flex-start;">
+            <div class="macro-item"><b>${food.p}</b><span>蛋白 g</span></div>
+            <div class="macro-item"><b>${food.c}</b><span>碳水 g</span></div>
+            <div class="macro-item"><b>${food.f}</b><span>脂肪 g</span></div>
+            ${typeof food.fiber === 'number' ? `<div class="macro-item"><b>${food.fiber}</b><span>纤维 g</span></div>` : ''}
+        </div>
+        <div class="tags-row" style="justify-content:flex-start;">
+            ${(food.tags || []).map(t => `<span class="tag-chip">${esc(t)}</span>`).join('')}
+            ${nutriHits.map(g => `<span class="n-chip">${g.emoji} ${g.name}</span>`).join('')}
+        </div>
+        <div class="detail-note"><b>营养要点</b>${esc(food.nutrition)}</div>
+        <div class="detail-note tip"><b>减脂提示</b>${esc(food.tip)}</div>
+        ${food.science ? `<div class="detail-note sci-note"><b>科普短句</b>${esc(food.science)}<em class="notice-inline">仅供个人减脂参考，不构成医疗建议</em></div>` : ''}
+        <div class="detail-actions">
+            <button class="btn-add" data-calcfood="${food.id}">＋ 加入计算器</button>
+            <button class="btn-note" data-note="${food.id}">✎ 记一笔</button>
+        </div>
+    `;
+    document.getElementById('detailModal').classList.add('show');
+    bindDetailActions();
+}
+
+/** 详情页内按钮（加入计算器 / 记一笔） */
+function bindDetailActions() {
+    const add = document.querySelector('#detailBody .btn-add');
+    if (add) add.addEventListener('click', () => addToCalculator(Number(add.dataset.calcfood)));
+    const note = document.querySelector('#detailBody .btn-note');
+    if (note) note.addEventListener('click', () => {
+        const f = getFood(Number(note.dataset.note));
+        closeFoodDetail();
+        openQuickRecord(f);
+    });
+}
+
+function closeFoodDetail() {
+    document.getElementById('detailModal').classList.remove('show');
+}
+
+/* ==========================================================
+ * 搜索框（实时过滤 + 搜索历史 / 热门搜索面板）
+ * ========================================================== */
+const HOT_SEARCHES = ['奶茶', '拿铁', '鸡胸', '红薯', '鸡蛋', '面包'];
+
+/** 记录搜索关键词（去重，最近在前，最多 8 条） */
+function recordSearch(kw) {
+    const k = String(kw || '').trim();
+    if (!k) return;
+    state.searchHistory = [k, ...state.searchHistory.filter(x => x !== k)].slice(0, 8);
+    saveLS(LS_KEYS.searchHistory, state.searchHistory);
+    renderSearchPanel();
+}
+
+/** 渲染搜索历史 / 热门搜索，并绑定点击 */
+function renderSearchPanel() {
+    const panel = document.getElementById('searchPanel');
+    if (!panel) return;
+
+    document.getElementById('spHistoryWrap')
+        .classList.toggle('hidden', state.searchHistory.length === 0);
+    document.getElementById('spHistory').innerHTML = state.searchHistory
+        .map(k => `<button class="sp-chip" data-kw="${esc(k)}">🔎 ${esc(k)}</button>`).join('');
+    document.getElementById('spHot').innerHTML = HOT_SEARCHES
+        .map(k => `<button class="sp-chip" data-kw="${esc(k)}">🔥 ${esc(k)}</button>`).join('');
+
+    /* 点选历史/热门词：直接用该词搜索 */
+    panel.querySelectorAll('.sp-chip').forEach(chip => {
+        chip.addEventListener('mousedown', (e) => e.preventDefault()); // 保住输入框焦点
+        chip.addEventListener('click', () => {
+            applySearchKeyword(chip.dataset.kw);
+            closeSearchPanel();
+        });
+    });
+
+    document.getElementById('clearHistory').addEventListener('click', () => {
+        state.searchHistory = [];
+        saveLS(LS_KEYS.searchHistory, []);
+        renderSearchPanel();
+        showToast('已清除搜索历史');
+    });
+}
+
+/** 应用一个搜索词（输入框 + 状态 + 记录历史 + 重渲染） */
+function applySearchKeyword(kw) {
+    const input = document.getElementById('searchInput');
+    input.value = kw;
+    state.keyword = kw;
+    document.getElementById('searchClear').classList.add('show');
+    recordSearch(kw);
+    renderFoodGrid();
+}
+
+function openSearchPanel() {
+    renderSearchPanel();
+    document.getElementById('searchPanel').classList.remove('hidden');
+}
+
+function closeSearchPanel() {
+    document.getElementById('searchPanel').classList.add('hidden');
+}
+
 function bindSearch() {
     const input = document.getElementById('searchInput');
     const clear = document.getElementById('searchClear');
@@ -334,12 +525,34 @@ function bindSearch() {
         renderFoodGrid();
     });
 
+    // 聚焦展开历史/热门面板
+    input.addEventListener('focus', openSearchPanel);
+    input.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (document.activeElement !== input) closeSearchPanel();
+        }, 180);
+    });
+
+    // 回车：把词记入搜索历史
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            if (state.keyword) recordSearch(state.keyword);
+            closeSearchPanel();
+        }
+    });
+
     clear.addEventListener('click', () => {
         input.value = '';
         state.keyword = '';
         clear.classList.remove('show');
         renderFoodGrid();
         input.focus();
+    });
+
+    // 点击搜索框以外的区域 → 收起面板
+    document.addEventListener('click', (e) => {
+        const wrap = document.querySelector('.search-wrap');
+        if (wrap && !wrap.contains(e.target)) closeSearchPanel();
     });
 }
 
@@ -902,7 +1115,7 @@ function updateQuickSub() {
     const ok = quickFood && isFinite(qty) && qty > 0 &&
         (quickFood.measure === 'weight' || Number.isInteger(qty));
     const sub = ok ? calcSub(quickFood, qty) : 0;
-    document.getElementById('quickSub').textContent = ok ? `预计 ${sub} kcal` : '请输入大于 0 的数量';
+    document.getElementById('quickSub').textContent = ok ? `预计 ${sub} kcal` : '份数/克重必须大于 0。';
     document.getElementById('quickOk').disabled = !ok;
 }
 
@@ -910,7 +1123,7 @@ function updateQuickSub() {
 function confirmQuickRecord() {
     if (!quickFood) return;
     const qty = Number(document.getElementById('quickQty').value);
-    if (!isFinite(qty) || qty <= 0) { showToast('份量需要大于 0'); return; }
+    if (!isFinite(qty) || qty <= 0) { showToast('份数/克重必须大于 0。'); return; }
     const meal = document.getElementById('quickMeal').value;
     const today = currentDateKey();
     const records = getRecords();
@@ -1056,6 +1269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     migrateLegacyLS();      // 旧数据无损迁移到带版本号的 key
     bindTabs();
     renderFilterTags();
+    renderNutriTags();
     renderFoodGrid();
     bindSearch();
     bindSort();
