@@ -890,6 +890,51 @@ main { flex: 1; padding: 40px 0 64px; }
 
 .row-del:hover { background: #E2756D; border-color: #E2756D; color: #fff; transform: scale(1.1); }
 
+/* 记录行：编辑（餐次/日期）铅笔钮 */
+.row-edit {
+    width: 30px; height: 30px;
+    min-width: 30px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    font-size: 13px;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    transition: all 0.2s ease;
+}
+
+.row-edit:hover { background: var(--blue-soft); border-color: var(--blue); color: var(--blue-deep); transform: scale(1.1); }
+
+/* 记录工具条：导出 JSON / CSV */
+.rec-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 16px 0 4px;
+    padding: 10px 14px;
+    background: var(--blue-soft);
+    border: 1.5px dashed var(--blue);
+    border-radius: 14px;
+}
+
+.rec-toolbar-tip { font-size: 12.5px; color: var(--blue-deep); }
+.rec-toolbar-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.toolbar-btn {
+    padding: 7px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--blue-deep);
+    background: var(--surface);
+    border: 1.5px solid var(--blue);
+    border-radius: 999px;
+    transition: all 0.2s ease;
+}
+
+.toolbar-btn:hover { background: var(--blue-deep); color: #fff; transform: translateY(-1px); }
+
 /* ----- 右侧：汇总栏 ----- */
 .calc-summary {
     position: sticky;
@@ -1304,6 +1349,20 @@ main { flex: 1; padding: 40px 0 64px; }
 .modal-row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
 .modal-row input[type="number"]:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(110, 151, 171, 0.15); }
+
+.modal-row input[type="date"] {
+    width: 140px;
+    padding: 7px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--text);
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+}
+
+.modal-row input[type="date"]:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(110, 151, 171, 0.15); }
 
 .modal-row select {
     padding: 8px 30px 8px 12px;

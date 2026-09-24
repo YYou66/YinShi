@@ -213,6 +213,15 @@
                     <span class="today-count" id="todayCount"></span>
                 </div>
 
+                <!-- 数据工具条：导出 -->
+                <div class="rec-toolbar">
+                    <span class="rec-toolbar-tip">💾 记录都存在本机浏览器里，想带走就导出</span>
+                    <div class="rec-toolbar-btns">
+                        <button class="toolbar-btn" id="exportCsvBtn" aria-label="导出 CSV">📊 导出 CSV</button>
+                        <button class="toolbar-btn" id="exportJsonBtn" aria-label="导出 JSON">📄 导出 JSON</button>
+                    </div>
+                </div>
+
                 <!-- 近 7 天柱状图（纯 CSS） -->
                 <div class="chart-card">
                     <div class="chart-title">近 7 天热量</div>
@@ -333,6 +342,32 @@
         <div class="modal modal-wide">
             <button class="modal-x" id="detailClose" aria-label="关闭">✕</button>
             <div id="detailBody"></div>
+        </div>
+    </div>
+
+    <!-- ============ 编辑记录弹窗（餐次 / 日期） ============ -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <h3>✏️ 编辑记录</h3>
+            <div class="modal-food" id="editFoodLine"></div>
+            <div class="modal-row">
+                <label for="editDate">日期</label>
+                <input type="date" id="editDate">
+            </div>
+            <div class="modal-row">
+                <label for="editMeal">餐次</label>
+                <select id="editMeal">
+                    <option value="早餐">🍳 早餐</option>
+                    <option value="午餐">🍱 午餐</option>
+                    <option value="晚餐">🍲 晚餐</option>
+                    <option value="加餐">🍬 加餐</option>
+                </select>
+            </div>
+            <p class="modal-sub">保存后会自动归入对应日期的餐次分组～</p>
+            <div class="modal-actions">
+                <button class="modal-btn-cancel" id="editCancel">取消</button>
+                <button class="modal-btn-ok" id="editOk">保存修改</button>
+            </div>
         </div>
     </div>
 

@@ -1054,6 +1054,7 @@ function recRowHTML(r) {
                 <div class="qty-error">请输入大于 0 的${(f ? f.measure : r.measure) === 'weight' ? '克数' : '整数份数'}</div>
             </div>
             <div class="row-sub">${recSub(r)} <span>kcal</span></div>
+            <button class="row-edit" data-editrec="${r.id}" aria-label="编辑餐次/日期" title="编辑餐次/日期">✏️</button>
             <button class="row-del" data-delrec="${r.id}" aria-label="删除">✕</button>
         </div>
     `;
@@ -1065,8 +1066,8 @@ function bindRecEvents(groups) {
 
     document.querySelectorAll('.rec-row').forEach(row => {
         row.addEventListener('click', (e) => {
-            // 点输入框 / 删除按钮时不打开详情
-            if (e.target.closest('.qty-input') || e.target.closest('.row-del')) return;
+            // 点输入框 / 编辑 / 删除按钮时不打开详情
+            if (e.target.closest('.qty-input, .row-del, .row-edit')) return;
             const rec = all.find(x => x.id === row.dataset.id);
             if (rec) openRecordDetail(rec);
         });
@@ -1104,6 +1105,14 @@ function bindRecEvents(groups) {
             saveLS(LS_KEYS.records, all);
             renderRecords(groups);
             showToast(`已删除记录 · ${rec ? rec.name : ''}`);
+        });
+    });
+
+    /* ✏️ 编辑餐次 / 日期 */
+    document.querySelectorAll('.row-edit[data-editrec]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openEditRecord(all.find(x => x.id === btn.dataset.editrec));
         });
     });
 }
@@ -1210,6 +1219,117 @@ function closeRecordDetail() {
     document.getElementById('detailModal').classList.remove('show');
 }
 
+/* ==========================================================
+ * 编辑记录：改餐次 / 日期（份数在记录行内直接改）
+ * ========================================================== */
+let editingRecId = null;
+
+function openEditRecord(rec) {
+    if (!rec) return;
+    editingRecId = rec.id;
+    const f = getFood(rec.foodId);
+    document.getElementById('editFoodLine').innerHTML = `
+        <span class="mf-emoji">${f ? f.emoji : (rec.emoji || '🍽')}</span>
+        <div>
+            <div class="mf-name">${esc(f ? f.name : rec.name)}</div>
+            <div class="mf-base">${f ? foodBaseText(f) : '下架食物快照'} · ${rec.qty} ${(f ? f.measure : rec.measure) === 'weight' ? 'g' : (f ? f.unit : rec.unit)}</div>
+        </div>
+    `;
+    document.getElementById('editDate').value = rec.date || currentDateKey();
+    document.getElementById('editMeal').value = rec.meal || '加餐';
+    document.getElementById('editModal').classList.add('show');
+}
+
+function confirmEditRecord() {
+    const all = getRecords();
+    const rec = all.find(x => x.id === editingRecId);
+    if (!rec) { closeEditRecord(); return; }
+    const date = document.getElementById('editDate').value;
+    const meal = document.getElementById('editMeal').value;
+    if (!date) { showToast('请选择日期'); return; }
+    rec.date = date;
+    rec.meal = meal || '加餐';
+    saveLS(LS_KEYS.records, all);
+    editingRecId = null;
+    closeEditRecord();
+    renderRecords();
+    updateRecBadge();
+    showToast(`✅ 已更新 · ${rec.name}（${date} ${MEAL_EMOJI[rec.meal]}${rec.meal}）`);
+}
+
+function closeEditRecord() {
+    document.getElementById('editModal').classList.remove('show');
+}
+
+/* ==========================================================
+ * 导出：JSON / CSV（全部记录，CSV 含估算营养素，Excel 友好）
+ * ========================================================== */
+function exportRecords(format) {
+    const records = getRecords();
+    if (!records.length) { showToast('还没有记录可导出'); return; }
+    const stamp = currentDateKey();
+
+    if (format === 'json') {
+        downloadFile(
+            JSON.stringify(records, null, 2),
+            `饮食记录_${stamp}.json`,
+            'application/json;charset=utf-8'
+        );
+        return;
+    }
+
+    // CSV：UTF-8 BOM（Excel 中文不乱码）+ 防公式注入转义
+    const head = ['日期', '餐次', '食物', '分类', '计量', '份量', '估算克重 g', '热量 kcal', '蛋白质 g', '碳水 g', '脂肪 g', '记录时间'];
+    const rows = records.map(r => {
+        const f = getFood(r.foodId);
+        const m = f ? macroSub(f, Number(r.qty)) : null;
+        const cat = (CATEGORIES.find(c => c.key === r.category) || {}).name || r.category || '';
+        const unit = (f ? f.measure : r.measure) === 'weight' ? 'g' : (f ? f.unit : r.unit || '');
+        return [
+            r.date || '', r.meal || '',
+            (f ? f.name : r.name) || '', cat, unit,
+            r.qty != null ? r.qty : '',
+            r.grams != null ? r.grams : (f ? estGrams(f, Number(r.qty)) : ''),
+            recSub(r),
+            m ? round1(m.p) : '', m ? round1(m.c) : '', m ? round1(m.f) : '',
+            fmtRecordTime(r.ts),
+        ];
+    });
+    const csv = '\uFEFF' + [head, ...rows].map(row => row.map(csvField).join(',')).join('\r\n');
+    downloadFile(csv, `饮食记录_${stamp}.csv`, 'text/csv;charset=utf-8');
+}
+
+function round1(n) { return Math.round(n * 10) / 10; }
+
+function fmtRecordTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    return `${dateKeyOf(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/** CSV 字段转义：逗号/引号/换行包引号，防公式注入（= + - @ 开头加引号） */
+function csvField(v) {
+    const s = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+}
+
+/** 触发浏览器下载 */
+function downloadFile(content, filename, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    showToast(`已导出 ${filename} · ${getRecords().length} 条记录`);
+}
+
 /** 弹窗 / 记录页固定按钮绑定 */
 function bindRecordActions() {
     document.getElementById('quickCancel').addEventListener('click', closeQuickRecord);
@@ -1226,11 +1346,23 @@ function bindRecordActions() {
     });
     document.getElementById('goFoodBtn2').addEventListener('click', () => switchPage('food'));
 
+    // 编辑记录弹窗
+    document.getElementById('editCancel').addEventListener('click', closeEditRecord);
+    document.getElementById('editOk').addEventListener('click', confirmEditRecord);
+    document.getElementById('editModal').addEventListener('click', (e) => {
+        if (e.target.id === 'editModal') closeEditRecord();
+    });
+
+    // 导出
+    document.getElementById('exportCsvBtn').addEventListener('click', () => exportRecords('csv'));
+    document.getElementById('exportJsonBtn').addEventListener('click', () => exportRecords('json'));
+
     // Esc 关闭弹窗
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeQuickRecord();
             closeRecordDetail();
+            closeEditRecord();
         }
     });
 }
