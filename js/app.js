@@ -1505,7 +1505,7 @@ function renderCuisineGrid() {
     } else if (p) {
         countText = `${p} · ${list.length} 道`;
     } else if (cuisineState.mode === 'nation') {
-        countText = `全国风味 · 华北首批发 · 共 ${list.length} 道`;
+        countText = `全国风味 · 已收录 ${provinceList().length} 省 · 共 ${list.length} 道`;
     } else {
         countText = `八大菜系代表菜 · 共 ${list.length} 道`;
     }
