@@ -432,6 +432,45 @@ main { flex: 1; padding: 40px 0 64px; }
 }
 .cuisine-desc .cd-desc { flex-basis: 100%; color: var(--text-light); line-height: 1.6; }
 
+/* 模式切换（八大菜系 / 全国风味） */
+.mode-tabs {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    margin-bottom: 14px;
+}
+
+.mode-tab {
+    padding: 7px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-light);
+    background: transparent;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.22s ease;
+}
+
+.mode-tab:hover { color: var(--blue-deep); }
+
+.mode-tab.active {
+    background: var(--blue-deep);
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(78, 122, 144, 0.3);
+}
+
+/* 省区筛选：暖橙 Active（与菜系蓝区分） */
+.province-chip.active {
+    background: var(--accent-deep);
+    border-color: var(--accent-deep);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(224, 160, 119, 0.32);
+}
+
 /* 卡片内的「查看详情」入口 */
 .food-card.clickable { cursor: pointer; }
 

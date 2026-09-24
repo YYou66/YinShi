@@ -70,11 +70,12 @@ function saveLS(key, value) {
     }
 }
 
-/** 按 id 找食物（食物库 FOODS + 菜系库 CUI_FOODS，品牌库后续并入） */
+/** 按 id 找食物（食物库 FOODS + 菜系库 CUI_FOODS + 全国库 CN_FOODS，品牌库后续并入） */
 function getFood(id) {
     const n = Number(id);
     return FOODS.find(f => f.id === n)
         || (typeof CUI_FOODS !== 'undefined' ? CUI_FOODS.find(f => f.id === n) : null)
+        || (typeof CN_FOODS !== 'undefined' ? CN_FOODS.find(f => f.id === n) : null)
         || null;
 }
 
@@ -1371,16 +1372,52 @@ function bindRecordActions() {
 }
 
 /* ==========================================================
- * 模块五：八大菜系代表菜
+ * 模块五：八大菜系 + 全国风味（省区分批）
  * ========================================================== */
-const cuisineState = { cuisine: 'all', keyword: '', sort: 'default' };
+const cuisineState = { mode: 'cuisine', cuisine: 'all', province: 'all', keyword: '', sort: 'default' };
 
-/** 菜系页可见菜（菜系 + 关键词 + 排序） */
+/** 当前模式下的数据池：八大菜系 CUI_FOODS / 全国风味 CN_FOODS */
+function cuisinePool() {
+    return cuisineState.mode === 'cuisine' ? CUI_FOODS : CN_FOODS;
+}
+
+/** 模式切换 tabs（八大菜系 / 全国风味） */
+function renderCuisineMode() {
+    const box = document.getElementById('cuisineModeTabs');
+    if (!box) return;
+    box.innerHTML = `
+        <button class="mode-tab ${cuisineState.mode === 'cuisine' ? 'active' : ''}" data-mode="cuisine">🍲 八大菜系</button>
+        <button class="mode-tab ${cuisineState.mode === 'nation' ? 'active' : ''}" data-mode="nation">🌏 全国风味</button>
+    `;
+    box.querySelectorAll('.mode-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            cuisineState.mode = tab.dataset.mode;
+            renderCuisineMode();
+            renderCuisineBar();
+            renderProvinceBar();
+            renderCuisineDesc();
+            renderCuisineGrid();
+        });
+    });
+}
+
+/** 全国风味：省区列表（按 CN_FOODS 出现顺序去重） */
+function provinceList() {
+    const seen = [];
+    cuisinePool().forEach(f => {
+        if (f.province && !seen.includes(f.province)) seen.push(f.province);
+    });
+    return seen;
+}
+
+/** 菜系页可见食物（模式 + 维度筛选 + 关键词 + 排序） */
 function getCuisineFoods() {
-    let list = CUI_FOODS.filter(f => {
-        const okCuisine = cuisineState.cuisine === 'all' || f.cuisine === cuisineState.cuisine;
+    let list = cuisinePool().filter(f => {
+        const okDim = cuisineState.mode === 'cuisine'
+            ? (cuisineState.cuisine === 'all' || f.cuisine === cuisineState.cuisine)
+            : (cuisineState.province === 'all' || f.province === cuisineState.province);
         const okSearch = !cuisineState.keyword || f.name.includes(cuisineState.keyword);
-        return okCuisine && okSearch;
+        return okDim && okSearch;
     });
     if (cuisineState.sort === 'high') list = [...list].sort((a, b) => b.cal - a.cal);
     else if (cuisineState.sort === 'low') list = [...list].sort((a, b) => a.cal - b.cal);
@@ -1391,6 +1428,7 @@ function getCuisineFoods() {
 function renderCuisineBar() {
     const bar = document.getElementById('cuisineBar');
     if (!bar) return;
+    bar.classList.toggle('hidden', cuisineState.mode !== 'cuisine');
     const chips = [{ key: 'all', name: '🔥 全部' }]
         .concat(CUISINE_LIB.map(c => ({ key: c.key, name: c.name })));
     bar.innerHTML = chips.map(c => `
@@ -1408,10 +1446,32 @@ function renderCuisineBar() {
     });
 }
 
+/** 省区筛选条（JS 渲染，仅「全国风味」模式显示） */
+function renderProvinceBar() {
+    const bar = document.getElementById('provinceBar');
+    if (!bar) return;
+    bar.classList.toggle('hidden', cuisineState.mode !== 'nation');
+    const chips = [{ key: 'all', name: '🌏 全部省区' }]
+        .concat(provinceList().map(p => ({ key: p, name: p })));
+    bar.innerHTML = chips.map(p => `
+        <button class="cuisine-chip province-chip ${cuisineState.province === p.key ? 'active' : ''}"
+                data-province="${p.key}">${p.name}</button>
+    `).join('');
+
+    bar.querySelectorAll('.province-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            cuisineState.province = chip.dataset.province;
+            renderProvinceBar();
+            renderCuisineGrid();
+        });
+    });
+}
+
 /** 选中菜系时显示小百科横幅（地域 / 风味 / 辣度 / 甜度 / 描述） */
 function renderCuisineDesc() {
     const box = document.getElementById('cuisineDesc');
     if (!box) return;
+    if (cuisineState.mode !== 'cuisine') { box.classList.add('hidden'); return; }
     const c = CUISINE_LIB.find(x => x.key === cuisineState.cuisine);
     box.classList.toggle('hidden', !c);
     if (!c) return;
@@ -1435,16 +1495,31 @@ function renderCuisineGrid() {
     const empty = document.getElementById('cuisineEmpty');
     grid.innerHTML = list.map((f, i) => foodCardHTML(f, i)).join('');
 
-    const c = CUISINE_LIB.find(x => x.key === cuisineState.cuisine);
-    document.getElementById('cuisineCount').textContent = cuisineState.keyword
-        ? `「${cuisineState.keyword}」找到 ${list.length} 道`
-        : (c ? `${c.name} · ${list.length} 道` : `八大菜系代表菜 · 共 ${list.length} 道`);
+    const c = cuisineState.mode === 'cuisine' ? CUISINE_LIB.find(x => x.key === cuisineState.cuisine) : null;
+    const p = cuisineState.mode === 'nation' && cuisineState.province !== 'all' ? cuisineState.province : null;
+    let countText;
+    if (cuisineState.keyword) {
+        countText = `「${cuisineState.keyword}」找到 ${list.length} 道`;
+    } else if (c) {
+        countText = `${c.name} · ${list.length} 道`;
+    } else if (p) {
+        countText = `${p} · ${list.length} 道`;
+    } else if (cuisineState.mode === 'nation') {
+        countText = `全国风味 · 华北首批发 · 共 ${list.length} 道`;
+    } else {
+        countText = `八大菜系代表菜 · 共 ${list.length} 道`;
+    }
+    document.getElementById('cuisineCount').textContent = countText;
 
+    let emptyText;
     if (list.length === 0) {
         empty.classList.remove('hidden');
-        document.getElementById('cuisineEmptyText').textContent = cuisineState.keyword
-            ? `没找到「${cuisineState.keyword}」相关的代表菜，换个词试试？`
-            : '这个菜系还没收录代表菜，先逛逛别的菜系？';
+        emptyText = cuisineState.keyword
+            ? `没找到「${cuisineState.keyword}」相关的食物，换个词试试？`
+            : (cuisineState.mode === 'nation'
+                ? '这个省区还没收录风味，先逛逛别的省区？'
+                : '这个菜系还没收录代表菜，先逛逛别的菜系？');
+        document.getElementById('cuisineEmptyText').textContent = emptyText;
     } else {
         empty.classList.add('hidden');
     }
@@ -1528,7 +1603,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderFilterTags();
     renderNutriTags();
     renderFoodGrid();
+    renderCuisineMode();     // 模块五：八大菜系 / 全国风味 模式切换
     renderCuisineBar();      // 模块五：八大菜系筛选条
+    renderProvinceBar();     // 全国风味省区筛选条（默认隐藏）
     renderCuisineDesc();     // 菜系小百科（默认隐藏）
     renderCuisineGrid();     // 八大菜系代表菜网格
     bindGridActions();       // 卡片网格事件委托（食物库 + 菜系共用，注册一次）

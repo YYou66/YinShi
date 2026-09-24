@@ -142,22 +142,28 @@
             </div>
         </section>
 
-        <!-- ================= 模块五：八大菜系代表菜 ================= -->
+        <!-- ================= 模块五：八大菜系 + 全国风味 ================= -->
         <section class="page" id="page-cuisines">
             <div class="page-head">
-                <h2>八大菜系 · 代表菜</h2>
-                <p>鲁 / 川 / 粤 / 苏 / 闽 / 浙 / 湘 / 徽，热量数据均为估算值～</p>
+                <h2>八大菜系 · 全国风味</h2>
+                <p>八大菜系代表菜 + 全国 34 省风味（分批入库），热量数据均为估算值～</p>
             </div>
+
+            <!-- 模式切换：八大菜系 / 全国风味（JS 渲染） -->
+            <div class="mode-tabs" id="cuisineModeTabs"></div>
 
             <!-- 搜索 -->
             <div class="search-box cuisine-search">
                 <span class="search-icon">🔍</span>
-                <input type="text" id="cuisineSearch" placeholder="搜代表菜，比如「麻婆豆腐」「佛跳墙」…" autocomplete="off">
+                <input type="text" id="cuisineSearch" placeholder="搜菜名，比如「麻婆豆腐」「刀削面」…" autocomplete="off">
                 <button class="search-clear" id="cuisineClear" aria-label="清空搜索">✕</button>
             </div>
 
-            <!-- 菜系筛选（JS 渲染） -->
+            <!-- 菜系筛选（JS 渲染，仅「八大菜系」模式显示） -->
             <div class="cuisine-bar" id="cuisineBar"></div>
+
+            <!-- 省区筛选（JS 渲染，仅「全国风味」模式显示） -->
+            <div class="province-bar hidden" id="provinceBar"></div>
 
             <!-- 菜系小百科（选中菜系时显示） -->
             <div class="cuisine-desc hidden" id="cuisineDesc"></div>
@@ -410,6 +416,7 @@
 
     <script src="js/data.js"></script>
     <script src="data/foods-cn-1.js"></script>
+    <script src="data/foods-cn-2.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
