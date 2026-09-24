@@ -70,9 +70,12 @@ function saveLS(key, value) {
     }
 }
 
-/** 按 id 找食物 */
+/** 按 id 找食物（食物库 FOODS + 菜系库 CUI_FOODS，品牌库后续并入） */
 function getFood(id) {
-    return FOODS.find(f => f.id === Number(id)) || null;
+    const n = Number(id);
+    return FOODS.find(f => f.id === n)
+        || (typeof CUI_FOODS !== 'undefined' ? CUI_FOODS.find(f => f.id === n) : null)
+        || null;
 }
 
 /** 轻提示 */
@@ -310,63 +313,63 @@ function renderFoodGrid() {
     } else {
         empty.classList.add('hidden');
     }
-
-    bindCardEvents();
 }
 
-/** 卡片级事件（收藏 / 加入计算器 / 记一笔） */
-function bindCardEvents() {
-    /* ♥ 收藏 */
-    document.querySelectorAll('.heart-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = Number(btn.dataset.fav);
-            const food = getFood(id);
-            const idx = state.favorites.indexOf(id);
-            if (idx > -1) {
-                state.favorites.splice(idx, 1);
-                btn.classList.remove('active');
-                btn.querySelector('svg').setAttribute('fill', 'none');
-                showToast(`已取消收藏 · ${food.name}`);
-            } else {
-                state.favorites.push(id);
-                btn.classList.add('active');
-                btn.querySelector('svg').setAttribute('fill', 'currentColor');
-                showToast(`♥ 已收藏 · ${food.name}`);
+    /** 卡片网格事件：委托到容器（渲染任意网格后无需重绑，避免食物页/菜系页重复监听） */
+function bindGridActions() {
+    ['foodGrid', 'cuisineGrid'].forEach(id => {
+        const grid = document.getElementById(id);
+        if (!grid) return;
+        grid.addEventListener('click', (e) => {
+            /* ♥ 收藏 */
+            const heart = e.target.closest('.heart-btn');
+            if (heart) return toggleFavorite(Number(heart.dataset.fav), heart);
+
+            /* 📖 查看详情 */
+            const detail = e.target.closest('.detail-link');
+            if (detail) { e.stopPropagation(); return openFoodDetail(getFood(Number(detail.dataset.detail))); }
+
+            /* ＋ 加入计算器 */
+            const add = e.target.closest('.btn-add');
+            if (add) {
+                const origin = add.textContent;
+                addToCalculator(Number(add.dataset.calc));
+                add.textContent = '✓ 已加入';
+                setTimeout(() => { add.textContent = origin; }, 1200);
+                return;
             }
-            saveLS(LS_KEYS.favorites, state.favorites);
-        });
-    });
 
-    /* ＋ 加入计算器（可复用：卡片 / 详情页 / 后续模块共用） */
-    document.querySelectorAll('.btn-add').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const origin = btn.textContent;
-            addToCalculator(Number(btn.dataset.calc));
-            btn.textContent = '✓ 已加入';
-            setTimeout(() => { btn.textContent = origin; }, 1200);
-        });
-    });
+            /* ✎ 记一笔 */
+            const note = e.target.closest('.btn-note');
+            if (note) return openQuickRecord(getFood(Number(note.dataset.note)));
 
-    /* ✎ 记一笔：弹出快捷记录窗，直接写入今日记录 */
-    document.querySelectorAll('.btn-note').forEach(btn => {
-        btn.addEventListener('click', () => {
-            openQuickRecord(getFood(Number(btn.dataset.note)));
+            /* 点卡片空白区域 → 打开统一详情 */
+            const card = e.target.closest('.food-card.clickable');
+            if (card && !e.target.closest('.btn-add, .btn-note, .heart-btn, .detail-link')) {
+                openFoodDetail(getFood(Number(card.dataset.id)));
+            }
         });
     });
+}
 
-    /* 📖 查看详情 / 点卡片打开统一详情模板（食物库 / 菜系 / 品牌共用） */
-    document.querySelectorAll('.detail-link').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openFoodDetail(getFood(Number(btn.dataset.detail)));
-        });
-    });
-    document.querySelectorAll('.food-card.clickable').forEach(card => {
-        card.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-add, .btn-note, .heart-btn, .detail-link')) return;
-            openFoodDetail(getFood(Number(card.dataset.id)));
-        });
-    });
+/** 收藏 / 取消收藏（卡片与详情共用） */
+function toggleFavorite(id, btn) {
+    const food = getFood(id);
+    const idx = state.favorites.indexOf(id);
+    if (idx > -1) {
+        state.favorites.splice(idx, 1);
+        btn.classList.remove('active');
+        const svg = btn.querySelector('svg');
+        if (svg) svg.setAttribute('fill', 'none');
+        showToast(`已取消收藏 · ${food ? food.name : ''}`);
+    } else {
+        state.favorites.push(id);
+        btn.classList.add('active');
+        const svg = btn.querySelector('svg');
+        if (svg) svg.setAttribute('fill', 'currentColor');
+        showToast(`♥ 已收藏 · ${food ? food.name : ''}`);
+    }
+    saveLS(LS_KEYS.favorites, state.favorites);
 }
 
 /** 加入计算器购物车（计重默认 100g，计数 +1 份） */
@@ -1368,6 +1371,108 @@ function bindRecordActions() {
 }
 
 /* ==========================================================
+ * 模块五：八大菜系代表菜
+ * ========================================================== */
+const cuisineState = { cuisine: 'all', keyword: '', sort: 'default' };
+
+/** 菜系页可见菜（菜系 + 关键词 + 排序） */
+function getCuisineFoods() {
+    let list = CUI_FOODS.filter(f => {
+        const okCuisine = cuisineState.cuisine === 'all' || f.cuisine === cuisineState.cuisine;
+        const okSearch = !cuisineState.keyword || f.name.includes(cuisineState.keyword);
+        return okCuisine && okSearch;
+    });
+    if (cuisineState.sort === 'high') list = [...list].sort((a, b) => b.cal - a.cal);
+    else if (cuisineState.sort === 'low') list = [...list].sort((a, b) => a.cal - b.cal);
+    return list;
+}
+
+/** 菜系筛选条（JS 渲染，数据来自 CUISINE_LIB） */
+function renderCuisineBar() {
+    const bar = document.getElementById('cuisineBar');
+    if (!bar) return;
+    const chips = [{ key: 'all', name: '🔥 全部' }]
+        .concat(CUISINE_LIB.map(c => ({ key: c.key, name: c.name })));
+    bar.innerHTML = chips.map(c => `
+        <button class="cuisine-chip ${cuisineState.cuisine === c.key ? 'active' : ''}"
+                data-cuisine="${c.key}">${c.name}</button>
+    `).join('');
+
+    bar.querySelectorAll('.cuisine-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            cuisineState.cuisine = chip.dataset.cuisine;
+            renderCuisineBar();
+            renderCuisineDesc();
+            renderCuisineGrid();
+        });
+    });
+}
+
+/** 选中菜系时显示小百科横幅（地域 / 风味 / 辣度 / 甜度 / 描述） */
+function renderCuisineDesc() {
+    const box = document.getElementById('cuisineDesc');
+    if (!box) return;
+    const c = CUISINE_LIB.find(x => x.key === cuisineState.cuisine);
+    box.classList.toggle('hidden', !c);
+    if (!c) return;
+    box.innerHTML = `
+        <div class="cd-main">
+            <span class="cd-em">${esc(c.name)}</span>
+            <span>${esc(c.region)} · ${esc(c.flavor)}</span>
+        </div>
+        <div class="cd-tags">
+            <span class="cd-tag">🌶 辣度 ${esc(c.spicy)}</span>
+            <span class="cd-tag">🍬 甜度 ${esc(c.sweet)}</span>
+        </div>
+        <div class="cd-desc">${esc(c.desc)}</div>
+    `;
+}
+
+/** 菜系页网格 + 计数 + 空状态 */
+function renderCuisineGrid() {
+    const list = getCuisineFoods();
+    const grid = document.getElementById('cuisineGrid');
+    const empty = document.getElementById('cuisineEmpty');
+    grid.innerHTML = list.map((f, i) => foodCardHTML(f, i)).join('');
+
+    const c = CUISINE_LIB.find(x => x.key === cuisineState.cuisine);
+    document.getElementById('cuisineCount').textContent = cuisineState.keyword
+        ? `「${cuisineState.keyword}」找到 ${list.length} 道`
+        : (c ? `${c.name} · ${list.length} 道` : `八大菜系代表菜 · 共 ${list.length} 道`);
+
+    if (list.length === 0) {
+        empty.classList.remove('hidden');
+        document.getElementById('cuisineEmptyText').textContent = cuisineState.keyword
+            ? `没找到「${cuisineState.keyword}」相关的代表菜，换个词试试？`
+            : '这个菜系还没收录代表菜，先逛逛别的菜系？';
+    } else {
+        empty.classList.add('hidden');
+    }
+}
+
+/** 菜系页控件：搜索 / 清空 / 排序 */
+function bindCuisines() {
+    const input = document.getElementById('cuisineSearch');
+    const clear = document.getElementById('cuisineClear');
+    input.addEventListener('input', () => {
+        cuisineState.keyword = input.value.trim();
+        clear.classList.toggle('show', input.value.length > 0);
+        renderCuisineGrid();
+    });
+    clear.addEventListener('click', () => {
+        input.value = '';
+        cuisineState.keyword = '';
+        clear.classList.remove('show');
+        renderCuisineGrid();
+        input.focus();
+    });
+    document.getElementById('cuisineSort').addEventListener('change', (e) => {
+        cuisineState.sort = e.target.value;
+        renderCuisineGrid();
+    });
+}
+
+/* ==========================================================
  * 模块四：关于页
  * ========================================================== */
 
@@ -1423,8 +1528,13 @@ document.addEventListener('DOMContentLoaded', () => {
     renderFilterTags();
     renderNutriTags();
     renderFoodGrid();
+    renderCuisineBar();      // 模块五：八大菜系筛选条
+    renderCuisineDesc();     // 菜系小百科（默认隐藏）
+    renderCuisineGrid();     // 八大菜系代表菜网格
+    bindGridActions();       // 卡片网格事件委托（食物库 + 菜系共用，注册一次）
     bindSearch();
     bindSort();
+    bindCuisines();          // 菜系页搜索 / 排序
     bindScanPlaceholder();  // 🍜 拍照识别按钮（占位）
     bindCalcActions();      // 模块二：计算器按钮
     renderCalculator();     // 模块二：购物车（含 localStorage 恢复）
