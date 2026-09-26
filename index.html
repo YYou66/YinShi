@@ -293,13 +293,43 @@
             </div>
         </section>
 
-        <!-- ================= 模块八：营养食谱（建设中） ================= -->
+        <!-- ================= 模块八：营养食谱 ================= -->
         <section class="page" id="page-recipe">
-            <div class="building-card">
-                <div class="building-emoji">🥗</div>
-                <h3>营养食谱 · 建设中</h3>
-                <p>每日营养目标 + 低卡三餐模板 + 早/午/晚/加餐推荐，一键记进饮食记录～</p>
-                <button class="empty-btn" onclick="switchPage('food')">先逛逛食物库 →</button>
+            <div class="page-head">
+                <h2>营养食谱</h2>
+                <p>每日营养目标 + 低卡三餐模板，一键加计算器 / 记入记录～</p>
+            </div>
+
+            <!-- 每日营养目标 -->
+            <div class="recipe-goal">
+                <h3>🎯 每日营养目标 <span class="goal-hint">默认 1800 kcal · 蛋白 90g · 碳水 220g · 脂肪 60g</span></h3>
+                <div class="goal-row">
+                    <label for="goalKcal">每日热量</label>
+                    <input type="number" id="goalKcal" min="800" max="5000" step="50">
+                    <span class="goal-unit">kcal</span>
+                </div>
+                <div class="goal-row">
+                    <label for="goalP">蛋白质</label>
+                    <input type="number" id="goalP" min="0" max="300">
+                    <span class="goal-unit">g</span>
+                    <label for="goalC">碳水</label>
+                    <input type="number" id="goalC" min="0" max="600">
+                    <span class="goal-unit">g</span>
+                    <label for="goalF">脂肪</label>
+                    <input type="number" id="goalF" min="0" max="200">
+                    <span class="goal-unit">g</span>
+                </div>
+                <button class="btn-goal" id="goalSave">💾 保存目标</button>
+            </div>
+
+            <!-- 三餐模板 -->
+            <div class="mode-tabs" id="recipeMealTabs"></div>
+            <div class="recipe-grid" id="recipeGrid"></div>
+
+            <!-- 低卡优选 -->
+            <div class="recipe-pick">
+                <h3>🥬 低卡优选 Top 8（主库 ≤ 260 kcal）</h3>
+                <div id="recipePick"></div>
             </div>
         </section>
 

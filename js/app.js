@@ -1842,6 +1842,188 @@ function bindSports() {
 }
 
 /* ==========================================================
+ * 模块八：营养食谱（每日营养目标 + 低卡三餐模板 + 低卡优选）
+ * ========================================================== */
+const recipeState = { meal: '早餐' };
+
+/** 读取每日营养目标（默认 1800 / 90 / 220 / 60；存 ys.v3.settings.target） */
+function loadRecipeTarget() {
+    const s = loadLS(LS_KEYS.settings, {});
+    const t = (s && s.target) || {};
+    return {
+        kcal: t.kcal > 0 ? t.kcal : 1800,
+        p: t.p >= 0 ? t.p : 90,
+        c: t.c >= 0 ? t.c : 220,
+        f: t.f >= 0 ? t.f : 60,
+    };
+}
+
+/** 把目标填进输入框 */
+function renderRecipeGoal() {
+    const t = loadRecipeTarget();
+    document.getElementById('goalKcal').value = t.kcal;
+    document.getElementById('goalP').value = t.p;
+    document.getElementById('goalC').value = t.c;
+    document.getElementById('goalF').value = t.f;
+}
+
+/** 保存每日营养目标 */
+function saveRecipeGoal() {
+    const kcal = Number(document.getElementById('goalKcal').value);
+    const p = Number(document.getElementById('goalP').value);
+    const c = Number(document.getElementById('goalC').value);
+    const f = Number(document.getElementById('goalF').value);
+    if (!(kcal > 0) || p < 0 || c < 0 || f < 0) {
+        showToast('🎯 每日目标数值不对（每日热量须大于 0）');
+        return;
+    }
+    const s = loadLS(LS_KEYS.settings, {});
+    s.target = { kcal, p, c, f };
+    saveLS(LS_KEYS.settings, s);
+    showToast(`✅ 每日营养目标已保存：${kcal} kcal / P ${p}g / C ${c}g / F ${f}g`);
+}
+
+/** 三餐模板切卡（早 / 午 / 晚 / 加餐） */
+function renderRecipeMealTabs() {
+    const box = document.getElementById('recipeMealTabs');
+    if (!box) return;
+    const meals = ['早餐', '午餐', '晚餐', '加餐'];
+    box.innerHTML = meals.map(m => `
+        <button class="mode-tab ${recipeState.meal === m ? 'active' : ''}" data-rmeal="${m}">${MEAL_EMOJI[m]} ${m}</button>`).join('');
+    box.querySelectorAll('.mode-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            recipeState.meal = tab.dataset.rmeal;
+            renderRecipeMealTabs();
+            renderRecipeGrid();
+        });
+    });
+}
+
+/** 模板营养合计（kcal / 蛋白 / 碳水 / 脂肪） */
+function recipePlanTotals(plan) {
+    return plan.items.reduce((sum, it) => {
+        const f = getFood(it.id);
+        if (!f) return sum;
+        const m = macroSub(f, it.qty);
+        sum.kcal += m.kcal; sum.p += m.p; sum.c += m.c; sum.f += m.f;
+        return sum;
+    }, { kcal: 0, p: 0, c: 0, f: 0 });
+}
+
+/** 渲染当前餐次的模板卡片 */
+function renderRecipeGrid() {
+    const grid = document.getElementById('recipeGrid');
+    if (!grid) return;
+    const plans = RECIPE_PLANS.filter(p => p.meal === recipeState.meal);
+    if (!plans.length) {
+        grid.innerHTML = '<div class="recipe-empty">该餐次暂无模板～</div>';
+        return;
+    }
+    grid.innerHTML = plans.map(plan => {
+        const t = recipePlanTotals(plan);
+        const items = plan.items.map(it => {
+            const f = getFood(it.id);
+            return f ? `<span class="recipe-item">${f.emoji} ${esc(f.name)} × ${it.qty}${f.measure === 'weight' ? 'g' : ''}</span>` : '';
+        }).join('');
+        return `
+            <div class="recipe-card">
+                <div class="recipe-head">
+                    <span class="recipe-emoji">${plan.emoji}</span>
+                    <div>
+                        <div class="recipe-title">${esc(plan.title)}</div>
+                        <div class="recipe-note">${esc(plan.note)}</div>
+                    </div>
+                </div>
+                <div class="recipe-items">${items}</div>
+                <div class="recipe-macros">
+                    <b>${t.kcal} kcal</b>
+                    <span>蛋白 ${t.p}g</span><span>碳水 ${t.c}g</span><span>脂肪 ${t.f}g</span>
+                </div>
+                <div class="recipe-actions">
+                    <button class="btn-add recipe-cart" data-plan="${plan.key}">🛒 一键加计算器</button>
+                    <button class="btn-note recipe-log" data-plan="${plan.key}">✎ 一键记入记录</button>
+                </div>
+            </div>`;
+    }).join('');
+    grid.querySelectorAll('.recipe-cart').forEach(btn => {
+        btn.addEventListener('click', () => recipeAddCart(btn.dataset.plan));
+    });
+    grid.querySelectorAll('.recipe-log').forEach(btn => {
+        btn.addEventListener('click', () => recipeLogPlan(btn.dataset.plan));
+    });
+}
+
+function recipePlanByKey(key) {
+    return RECIPE_PLANS.find(p => p.key === key);
+}
+
+/** 模板 → 一键加入计算器 */
+function recipeAddCart(key) {
+    const plan = recipePlanByKey(key);
+    if (!plan) return;
+    plan.items.forEach(it => addToCalculator(it.id));
+    showToast(`🛒 已把「${plan.title}」${plan.items.length} 种食物加进计算器`);
+}
+
+/** 模板 → 一键记入今日记录（每项一条，与「记一笔」同字段） */
+function recipeLogPlan(key) {
+    const plan = recipePlanByKey(key);
+    if (!plan) return;
+    const today = currentDateKey();
+    const records = getRecords();
+    plan.items.forEach(it => {
+        const f = getFood(it.id);
+        if (!f) return;
+        records.push({
+            id: Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+            ts: Date.now(),
+            date: today, meal: plan.meal,
+            foodId: f.id, name: f.name, emoji: f.emoji,
+            category: f.category, unit: f.unit, measure: f.measure,
+            cal: f.cal, qty: it.qty, grams: estGrams(f, it.qty),
+            sub: calcSub(f, it.qty),
+        });
+    });
+    saveLS(LS_KEYS.records, records);
+    renderRecords();
+    updateRecBadge();
+    showToast(`📖 已把「${plan.title}」记入 ${today} ${plan.meal}`);
+}
+
+/** 低卡优选 Top 8（主库 ≤ 260 kcal） */
+function renderRecipePick() {
+    const box = document.getElementById('recipePick');
+    if (!box) return;
+    const picks = FOODS.filter(f => f.cal > 0 && f.cal <= 260)
+        .sort((a, b) => a.cal - b.cal).slice(0, 8);
+    box.innerHTML = picks.map(f => `
+        <div class="pick-row" data-pickid="${f.id}">
+            <span class="pick-emoji">${f.emoji}</span>
+            <div class="pick-info">
+                <div class="pick-name">${esc(f.name)}</div>
+                <div class="pick-base">${foodBaseText(f)}</div>
+            </div>
+            <b class="pick-cal">${f.cal} kcal</b>
+            <div class="pick-actions">
+                <button class="btn-add mini" data-pick="${f.id}" title="加入计算器">＋</button>
+                <button class="btn-note mini" data-picklog="${f.id}" title="记一笔">✎</button>
+            </div>
+        </div>`).join('');
+    box.querySelectorAll('.mini').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = Number(btn.dataset.pick || btn.dataset.picklog);
+            if (btn.dataset.pick) addToCalculator(id);
+            else openQuickRecord(getFood(id));
+        });
+    });
+}
+
+/** 食谱页控件绑定 */
+function bindRecipe() {
+    document.getElementById('goalSave').addEventListener('click', saveRecipeGoal);
+}
+
+/* ==========================================================
  * 模块四：关于页
  * ========================================================== */
 
@@ -1916,6 +2098,11 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSportTip();        // 模块七：安全提示
     renderSportLibrary();    // 模块七：MET 参考表
     bindSports();            // 模块七：体重 / 计算 / 带入计算器
+    renderRecipeGoal();      // 模块八：每日营养目标
+    renderRecipeMealTabs();  // 模块八：三餐模板切卡
+    renderRecipeGrid();      // 模块八：模板列表
+    renderRecipePick();      // 模块八：低卡优选 Top8
+    bindRecipe();            // 模块八：目标保存
     bindScanPlaceholder();  // 🍜 拍照识别按钮（占位）
     bindCalcActions();      // 模块二：计算器按钮
     renderCalculator();     // 模块二：购物车（含 localStorage 恢复）

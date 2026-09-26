@@ -66,6 +66,27 @@ const EXERCISE_LIB = [
     { key: 'dance',   name: '舞蹈 / 有氧操',        emoji: '💃', met: 6.5, group: '有氧', tips: '跟好节奏别猛发力，选择通风开阔的场地' },
 ];
 
+/* ---------- 营养食谱：低卡三餐模板（模块八使用） ---------- */
+/* items 引用 getFood 可解析的食物 id 与数量（克重食物 qty=克数，份数食物 qty=份数） */
+const RECIPE_PLANS = [
+    /* ===== 早餐 ===== */
+    { meal: '早餐', key: 'b1', title: '轻盈启动', emoji: '🌅', note: '慢碳 + 蛋白组合，扛饿到中午', items: [{ id: 76, qty: 1 }, { id: 32, qty: 1 }, { id: 36, qty: 1 }] },
+    { meal: '早餐', key: 'b2', title: '蛋白开局', emoji: '🍳', note: '全麦 + 蛋 + 圣女果，均衡开胃', items: [{ id: 77, qty: 1 }, { id: 89, qty: 1 }] },
+    { meal: '早餐', key: 'b3', title: '田园粗粮', emoji: '🌽', note: '玉米 + 水煮蛋 + 豆浆，清爽补蛋白', items: [{ id: 53, qty: 1 }, { id: 57, qty: 1 }, { id: 36, qty: 1 }] },
+    /* ===== 午餐 ===== */
+    { meal: '午餐', key: 'l1', title: '减脂鸡胸饭', emoji: '🥗', note: '鸡胸 + 糙米 + 西兰花，高蛋白顶饱', items: [{ id: 51, qty: 1 }, { id: 56, qty: 1 }, { id: 55, qty: 1 }] },
+    { meal: '午餐', key: 'l2', title: '鲜虾糙米碗', emoji: '🍤', note: '白灼虾 + 糙米 + 拍黄瓜，低脂高蛋白', items: [{ id: 54, qty: 1 }, { id: 56, qty: 1 }, { id: 100, qty: 1 }] },
+    { meal: '午餐', key: 'l3', title: '能量沙拉碗', emoji: '🥙', note: '鸡肉沙拉 + 豆浆，粗犷又均衡', items: [{ id: 87, qty: 1 }, { id: 36, qty: 1 }] },
+    /* ===== 晚餐 ===== */
+    { meal: '晚餐', key: 'd1', title: '牛肉时蔬', emoji: '🥩', note: '瘦牛肉 + 藕片 + 生菜，补铁低卡', items: [{ id: 86, qty: 100 }, { id: 44, qty: 100 }, { id: 99, qty: 1 }] },
+    { meal: '晚餐', key: 'd2', title: '深海三文鱼', emoji: '🐟', note: '三文鱼 + 魔芋面 + 娃娃菜，优质脂肪', items: [{ id: 59, qty: 100 }, { id: 60, qty: 1 }, { id: 49, qty: 100 }] },
+    { meal: '晚餐', key: 'd3', title: '清蒸鲈鱼餐', emoji: '🏠', note: '鲈鱼 + 玉米 + 拍黄瓜，家常低负担', items: [{ id: 98, qty: 1 }, { id: 53, qty: 1 }, { id: 100, qty: 1 }] },
+    /* ===== 加餐 ===== */
+    { meal: '加餐', key: 's1', title: '高蛋白加餐', emoji: '🥛', note: '希腊酸奶 + 圣女果，训练后友好', items: [{ id: 52, qty: 1 }, { id: 89, qty: 1 }] },
+    { meal: '加餐', key: 's2', title: '鹰嘴豆罐', emoji: '🫘', note: '植物蛋白 + 慢碳，下午馋了来一罐', items: [{ id: 88, qty: 100 }] },
+    { meal: '加餐', key: 's3', title: '暖甜烤红薯', emoji: '🌟', note: '运动前后来一根，能量刚刚好', items: [{ id: 62, qty: 1 }] },
+];
+
 /* ==========================================================
  * 设计系统常量（全局数据模型，供所有模块复用）
  * ========================================================== */
