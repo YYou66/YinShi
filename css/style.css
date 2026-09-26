@@ -471,6 +471,41 @@ main { flex: 1; padding: 40px 0 64px; }
     box-shadow: 0 4px 12px rgba(224, 160, 119, 0.32);
 }
 
+/* 品牌热量库：绿色系（与菜系蓝 / 省区橙区分） */
+.cuisine-chip.brand-chip:hover { border-color: #9DB084; color: #4F6238; transform: translateY(-1px); }
+
+.cuisine-chip.brand-chip.active {
+    background: #6E9A5E;
+    border-color: #6E9A5E;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(110, 154, 94, 0.32);
+}
+
+.cat-chip.brand-chip {
+    background: #EFF3E4;
+    color: #4F6238;
+    border-color: #C6D3AC;
+}
+
+/* 品牌页顶部免责横幅 */
+.brand-disclaimer {
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    background: #FFF7E8;
+    border: 1.5px dashed var(--accent-deep);
+    border-radius: 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #8A5A33;
+}
+
+/* 详情页品牌备注角注（估算值 + 更新日期） */
+.detail-note.brand-note {
+    background: #F6F4EC;
+    border-color: #D8CDB0;
+}
+.detail-note.brand-note b { color: #4F6238; }
+
 /* 卡片内的「查看详情」入口 */
 .food-card.clickable { cursor: pointer; }
 

@@ -70,12 +70,13 @@ function saveLS(key, value) {
     }
 }
 
-/** 按 id 找食物（食物库 FOODS + 菜系库 CUI_FOODS + 全国库 CN_FOODS，品牌库后续并入） */
+/** 按 id 找食物（食物库 FOODS + 菜系库 CUI_FOODS + 全国库 CN_FOODS + 品牌库 BRAND_FOODS） */
 function getFood(id) {
     const n = Number(id);
     return FOODS.find(f => f.id === n)
         || (typeof CUI_FOODS !== 'undefined' ? CUI_FOODS.find(f => f.id === n) : null)
         || (typeof CN_FOODS !== 'undefined' ? CN_FOODS.find(f => f.id === n) : null)
+        || (typeof BRAND_FOODS !== 'undefined' ? BRAND_FOODS.find(f => f.id === n) : null)
         || null;
 }
 
@@ -220,16 +221,17 @@ function getVisibleFoods() {
     return list;
 }
 
-/** 单张卡片 HTML */
+/** 单张卡片 HTML（食物库 / 菜系 / 品牌通用；品牌餐品显示品牌徽章） */
 function foodCardHTML(food, index) {
     const cat = CATEGORIES.find(c => c.key === food.category);
+    const brand = food.brand && typeof BRANDS_LIB !== 'undefined' ? BRANDS_LIB.find(b => b.key === food.brand) : null;
     const faved = state.favorites.includes(food.id);
     const measureText = food.measure === 'weight' ? '每 100g' : '1 ' + food.unit;
 
     return `
         <article class="food-card clickable" data-id="${food.id}" style="animation-delay:${index * 40}ms">
             <div class="card-head">
-                <span class="cat-chip">${cat.emoji} ${cat.name}</span>
+                <span class="cat-chip${brand ? ' brand-chip' : ''}">${brand ? `${brand.emoji} ${brand.name}` : `${cat.emoji} ${cat.name}`}</span>
                 <button class="heart-btn ${faved ? 'active' : ''}"
                         data-fav="${food.id}" aria-label="收藏">
                     <svg width="18" height="18" viewBox="0 0 24 24"
@@ -318,7 +320,7 @@ function renderFoodGrid() {
 
     /** 卡片网格事件：委托到容器（渲染任意网格后无需重绑，避免食物页/菜系页重复监听） */
 function bindGridActions() {
-    ['foodGrid', 'cuisineGrid'].forEach(id => {
+    ['foodGrid', 'cuisineGrid', 'brandGrid'].forEach(id => {
         const grid = document.getElementById(id);
         if (!grid) return;
         grid.addEventListener('click', (e) => {
@@ -397,6 +399,7 @@ function openFoodDetail(food) {
     const cat = CATEGORIES.find(c => c.key === food.category);
     const spicy = food.spicy ? spicyMeta(food.spicy) : null;
     const cc = food.cuisine ? CUISINE_LIB.find(x => x.key === food.cuisine) : null;
+    const brand = food.brand && typeof BRANDS_LIB !== 'undefined' ? BRANDS_LIB.find(b => b.key === food.brand) : null;
     const nutriHits = NUTRI_GROUPS.filter(g => g.test(food));
     const gramText = food.measure === 'count'
         ? '约 ' + estGrams(food, 1) + ' g / 1 ' + food.unit
@@ -411,6 +414,7 @@ function openFoodDetail(food) {
                     ${cat ? `<span class="cat-chip">${cat.emoji} ${esc(cat.name)}</span>` : ''}
                     ${spicy ? `<span class="spicy-chip">${spicy.emoji} ${esc(food.spicy)}</span>` : ''}
                     ${cc ? `<span class="cuisine-chip">🍲 ${esc(cc.name)}</span>` : ''}
+                    ${brand ? `<span class="cat-chip brand-chip">${brand.emoji} ${esc(brand.name)}</span>` : ''}
                 </div>
             </div>
         </div>
@@ -430,6 +434,7 @@ function openFoodDetail(food) {
         </div>
         <div class="detail-note"><b>营养要点</b>${esc(food.nutrition)}</div>
         <div class="detail-note tip"><b>减脂提示</b>${esc(food.tip)}</div>
+        ${brand ? `<div class="detail-note brand-note"><b>品牌备注</b>⚠️ 热量为估算值，以品牌官方小程序 / 包装标注为准<em class="notice-inline">更新于 ${esc(food.updated || '')}</em></div>` : ''}
         ${food.science ? `<div class="detail-note sci-note"><b>科普短句</b>${esc(food.science)}<em class="notice-inline">仅供个人减脂参考，不构成医疗建议</em></div>` : ''}
         <div class="detail-actions">
             <button class="btn-add" data-calcfood="${food.id}">＋ 加入计算器</button>
@@ -1548,6 +1553,86 @@ function bindCuisines() {
 }
 
 /* ==========================================================
+ * 模块六：品牌热量库（蜜雪冰城 / 喜茶 / 瑞幸 / 库迪 / 汉堡王 / 达美乐）
+ * ========================================================== */
+const brandState = { brand: 'all', keyword: '', sort: 'default' };
+
+/** 品牌页可见餐品（品牌筛选 + 关键词 + 排序） */
+function getBrandFoods() {
+    let list = (typeof BRAND_FOODS !== 'undefined' ? BRAND_FOODS : []).filter(f => {
+        const okBrand = brandState.brand === 'all' || f.brand === brandState.brand;
+        const okSearch = !brandState.keyword || f.name.includes(brandState.keyword);
+        return okBrand && okSearch;
+    });
+    if (brandState.sort === 'high') list = [...list].sort((a, b) => b.cal - a.cal);
+    else if (brandState.sort === 'low') list = [...list].sort((a, b) => a.cal - b.cal);
+    return list;
+}
+
+/** 品牌筛选条（JS 渲染，数据来自 BRANDS_LIB；绿色系 Active 区分菜系蓝/省区橙） */
+function renderBrandBar() {
+    const bar = document.getElementById('brandBar');
+    if (!bar) return;
+    const chips = [{ key: 'all', name: '🏪 全部品牌' }]
+        .concat(BRANDS_LIB.map(b => ({ key: b.key, name: `${b.emoji} ${b.name}` })));
+    bar.innerHTML = chips.map(c => `
+        <button class="cuisine-chip brand-chip ${brandState.brand === c.key ? 'active' : ''}"
+                data-brand="${c.key}">${c.name}</button>
+    `).join('');
+    bar.querySelectorAll('.brand-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            brandState.brand = chip.dataset.brand;
+            renderBrandBar();
+            renderBrandGrid();
+        });
+    });
+}
+
+/** 品牌页网格 + 计数 + 空状态 */
+function renderBrandGrid() {
+    const list = getBrandFoods();
+    const grid = document.getElementById('brandGrid');
+    const empty = document.getElementById('brandEmpty');
+    grid.innerHTML = list.map((f, i) => foodCardHTML(f, i)).join('');
+
+    const b = brandState.brand !== 'all' ? BRANDS_LIB.find(x => x.key === brandState.brand) : null;
+    document.getElementById('brandCount').textContent = brandState.keyword
+        ? `「${brandState.keyword}」找到 ${list.length} 款`
+        : (b ? `${b.emoji} ${b.name} · ${list.length} 款` : `品牌热量库 · 共 ${list.length} 款`);
+
+    if (list.length === 0) {
+        empty.classList.remove('hidden');
+        document.getElementById('brandEmptyText').textContent = brandState.keyword
+            ? `没找到「${brandState.keyword}」相关的餐品，换个词试试？`
+            : '这个品牌还没收录餐品，先逛逛别的品牌？';
+    } else {
+        empty.classList.add('hidden');
+    }
+}
+
+/** 品牌页控件：搜索 / 清空 / 排序 */
+function bindBrands() {
+    const input = document.getElementById('brandSearch');
+    const clear = document.getElementById('brandClear');
+    input.addEventListener('input', () => {
+        brandState.keyword = input.value.trim();
+        clear.classList.toggle('show', input.value.length > 0);
+        renderBrandGrid();
+    });
+    clear.addEventListener('click', () => {
+        input.value = '';
+        brandState.keyword = '';
+        clear.classList.remove('show');
+        renderBrandGrid();
+        input.focus();
+    });
+    document.getElementById('brandSort').addEventListener('change', (e) => {
+        brandState.sort = e.target.value;
+        renderBrandGrid();
+    });
+}
+
+/* ==========================================================
  * 模块四：关于页
  * ========================================================== */
 
@@ -1608,10 +1693,13 @@ document.addEventListener('DOMContentLoaded', () => {
     renderProvinceBar();     // 全国风味省区筛选条（默认隐藏）
     renderCuisineDesc();     // 菜系小百科（默认隐藏）
     renderCuisineGrid();     // 八大菜系代表菜网格
-    bindGridActions();       // 卡片网格事件委托（食物库 + 菜系共用，注册一次）
+    renderBrandBar();        // 模块六：品牌筛选条
+    renderBrandGrid();       // 模块六：品牌热量库网格
+    bindGridActions();       // 卡片网格事件委托（食物库 + 菜系 + 品牌共用，注册一次）
     bindSearch();
     bindSort();
     bindCuisines();          // 菜系页搜索 / 排序
+    bindBrands();            // 品牌页搜索 / 排序
     bindScanPlaceholder();  // 🍜 拍照识别按钮（占位）
     bindCalcActions();      // 模块二：计算器按钮
     renderCalculator();     // 模块二：购物车（含 localStorage 恢复）

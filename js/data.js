@@ -37,6 +37,16 @@ const CATEGORIES = [
     { key: 'home',      name: '家常饭菜', emoji: '🍚' },
 ];
 
+/* ---------- 品牌热量库：品牌字典（品牌页筛选条 + 卡片/详情品牌徽章） ---------- */
+const BRANDS_LIB = [
+    { key: 'mixue',      name: '蜜雪冰城', emoji: '🍦', type: '奶茶 / 冰淇淋' },
+    { key: 'heytea',     name: '喜茶',     emoji: '🧋', type: '新式茶饮' },
+    { key: 'luckin',     name: '瑞幸咖啡', emoji: '☕', type: '咖啡' },
+    { key: 'cotti',      name: '库迪咖啡', emoji: '☕', type: '咖啡' },
+    { key: 'burgerking', name: '汉堡王',   emoji: '🍔', type: '西式快餐' },
+    { key: 'dominos',    name: '达美乐',   emoji: '🍕', type: '披萨快餐' },
+];
+
 /* ==========================================================
  * 设计系统常量（全局数据模型，供所有模块复用）
  * ========================================================== */

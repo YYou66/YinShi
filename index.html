@@ -192,14 +192,49 @@
             </div>
         </section>
 
-        <!-- ================= 模块六：品牌热量库（建设中） ================= -->
+        <!-- ================= 模块六：品牌热量库 ================= -->
         <section class="page" id="page-brands">
-            <div class="building-card">
-                <div class="building-emoji">🏪</div>
-                <h3>品牌热量库 · 建设中</h3>
-                <p>蜜雪冰城 / 喜茶 / 瑞幸 / 库迪 / 汉堡王 / 达美乐…常见品牌餐品热量估算即将上线。</p>
-                <p class="building-note">估算值，以品牌官方小程序 / 包装为准</p>
-                <button class="empty-btn" onclick="switchPage('food')">先逛逛食物库 →</button>
+            <div class="page-head">
+                <h2>品牌热量库</h2>
+                <p>常见连锁品牌餐品热量估算，点单前心里有数～</p>
+            </div>
+
+            <!-- 免责声明：估算值，以官方为准 -->
+            <div class="brand-disclaimer">
+                ⚠️ 本页数值均为<b>估算值</b>，以品牌官方小程序 / 包装标注为准；门店配方与杯量不同会有浮动，请以实物为准。
+            </div>
+
+            <!-- 搜索 -->
+            <div class="search-box cuisine-search">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="brandSearch" placeholder="搜品牌餐品，比如「生椰拿铁」「皇堡」…" autocomplete="off">
+                <button class="search-clear" id="brandClear" aria-label="清空搜索">✕</button>
+            </div>
+
+            <!-- 品牌筛选条（JS 渲染） -->
+            <div class="cuisine-bar" id="brandBar"></div>
+
+            <!-- 工具栏：结果数 + 排序 -->
+            <div class="toolbar">
+                <span class="result-count" id="brandCount"></span>
+                <div class="sort-group">
+                    <label for="brandSort">排序</label>
+                    <select id="brandSort">
+                        <option value="default">默认排序</option>
+                        <option value="high">热量 ↓ 高 → 低</option>
+                        <option value="low">热量 ↑ 低 → 高</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 卡片网格（JS 渲染） -->
+            <div class="food-grid" id="brandGrid"></div>
+
+            <!-- 空状态 -->
+            <div class="empty-state hidden" id="brandEmpty">
+                <div class="empty-emoji">🏪</div>
+                <h3>没找到对应餐品</h3>
+                <p id="brandEmptyText">换个品牌或关键词试试？</p>
             </div>
         </section>
 
@@ -421,6 +456,7 @@
     <script src="data/foods-cn-4.js"></script>
     <script src="data/foods-cn-5.js"></script>
     <script src="data/foods-cn-6.js"></script>
+    <script src="data/brands-1.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
