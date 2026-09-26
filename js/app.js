@@ -439,6 +439,7 @@ function openFoodDetail(food) {
         <div class="detail-actions">
             <button class="btn-add" data-calcfood="${food.id}">＋ 加入计算器</button>
             <button class="btn-note" data-note="${food.id}">✎ 记一笔</button>
+            <button class="btn-sport" data-sport="${food.id}">⚡ 换算成运动</button>
         </div>
     `;
     document.getElementById('detailModal').classList.add('show');
@@ -454,6 +455,12 @@ function bindDetailActions() {
         const f = getFood(Number(note.dataset.note));
         closeFoodDetail();
         openQuickRecord(f);
+    });
+    const sport = document.querySelector('#detailBody .btn-sport');
+    if (sport) sport.addEventListener('click', () => {
+        const f = getFood(Number(sport.dataset.sport));
+        closeFoodDetail();
+        openSportConvert(f ? f.cal : 0);
     });
 }
 
@@ -1633,6 +1640,208 @@ function bindBrands() {
 }
 
 /* ==========================================================
+ * 模块七：运动消耗（体重设置 + MET 动作库 + 吃动换算 + 安全提示）
+ * ========================================================== */
+const sportState = { mode: 'burn', act: 'run8', weight: 60 };
+
+/** 读取体重设置（默认 60kg，存在 ys.v3.settings） */
+function loadSportWeight() {
+    const s = loadLS(LS_KEYS.settings, {});
+    return (s && typeof s.weight === 'number' && s.weight > 0) ? s.weight : 60;
+}
+
+/** 模式切换 tabs（🔥 运动算消耗 / 🍽 吃动换算） */
+function renderSportModeTabs() {
+    const box = document.getElementById('sportModeTabs');
+    if (!box) return;
+    box.innerHTML = `
+        <button class="mode-tab ${sportState.mode === 'burn' ? 'active' : ''}" data-smode="burn">🔥 运动算消耗</button>
+        <button class="mode-tab ${sportState.mode === 'convert' ? 'active' : ''}" data-smode="convert">🍽 吃动换算</button>
+    `;
+    box.querySelectorAll('.mode-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            sportState.mode = tab.dataset.smode;
+            renderSportModeTabs();
+            renderSportPanels();
+        });
+    });
+}
+
+/** 按当前模式显隐面板 */
+function renderSportPanels() {
+    const burn = document.getElementById('sportBurnPanel');
+    const conv = document.getElementById('sportConvPanel');
+    if (!burn || !conv) return;
+    burn.classList.toggle('hidden', sportState.mode !== 'burn');
+    conv.classList.toggle('hidden', sportState.mode !== 'convert');
+}
+
+/** 填充两个动作下拉框（burn / convert 共用一份动作库） */
+function renderSportSelects() {
+    const opts = EXERCISE_LIB.map(e =>
+        `<option value="${e.key}" data-met="${e.met}">${e.emoji} ${e.name} · MET ${e.met}</option>`).join('');
+    ['sportBurnAct', 'sportConvAct'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        sel.innerHTML = opts;
+        sel.value = sportState.act;
+        sel.addEventListener('change', () => {
+            sportState.act = sel.value;
+            renderSportTip();
+        });
+    });
+}
+
+/** 当前选中的动作（缺省回退到第一个） */
+function sportAct() {
+    return EXERCISE_LIB.find(e => e.key === sportState.act) || EXERCISE_LIB[0];
+}
+
+/** 安全提示：选中动作的 tips 展示（两个面板同步） */
+function renderSportTip() {
+    const ex = sportAct();
+    if (!ex) return;
+    const t = '💡 ' + ex.tips;
+    const b = document.getElementById('sportBurnTip');
+    const c = document.getElementById('sportConvTip');
+    if (b) b.textContent = t;
+    if (c) c.textContent = t;
+}
+
+/* 计算公式：消耗 = MET × 体重(kg) × 时长(h)；反向 = kcal ÷ (MET × 体重) */
+function sportBurnKcal(met, weightKg, minutes) {
+    return Math.round(met * weightKg * (Number(minutes) || 0) / 60);
+}
+function sportNeedMinutes(kcal, met, weightKg) {
+    if (!(kcal > 0) || !(met > 0) || !(weightKg > 0)) return null;
+    return Math.max((kcal / (met * weightKg)) * 60, 0.1);
+}
+function sportTimeText(min) {
+    const m = Number(min);
+    if (m >= 60) {
+        const h = Math.floor(m / 60), r = Math.round(m % 60);
+        return h + ' 小时' + (r ? ' ' + r + ' 分钟' : '');
+    }
+    if (m < 3) return '约 ' + Math.max(1, Math.ceil(m)) + ' 分钟';
+    return '约 ' + Math.round(m) + ' 分钟';
+}
+
+/** 模式 A：运动算消耗 */
+function runSportBurn() {
+    const time = Number(document.getElementById('sportBurnTime').value);
+    const box = document.getElementById('sportBurnResult');
+    if (!(time > 0)) {
+        box.classList.add('hidden');
+        showToast('⏱ 时长（分钟）要大于 0。');
+        return;
+    }
+    const ex = sportAct();
+    const kcal = sportBurnKcal(ex.met, sportState.weight, time);
+    const hourly = Math.round(ex.met * sportState.weight);
+    box.innerHTML = `体重 ${sportState.weight}kg · ${ex.emoji} ${ex.name}（MET ${ex.met}）<br>
+        <b>${time} 分钟约消耗 ${kcal} kcal</b><br>
+        <span class="sport-sub">平均每分钟约 ${Math.max(1, Math.round(kcal / time))} kcal · 照这强度每小时约烧 ${hourly} kcal</span>`;
+    box.classList.remove('hidden');
+}
+
+/** 模式 B：吃动换算（正餐 + 反向时间） */
+function runSportConvert() {
+    const kcal = Number(document.getElementById('sportConvKcal').value);
+    const box = document.getElementById('sportConvResult');
+    if (!(kcal > 0)) {
+        box.classList.add('hidden');
+        showToast('🔥 摄入热量要大于 0。');
+        return;
+    }
+    const ex = sportAct();
+    const min = sportNeedMinutes(kcal, ex.met, sportState.weight);
+    const hourly = Math.round(ex.met * sportState.weight);
+    box.innerHTML = `吃掉 <b>${Math.round(kcal)} kcal</b>，靠 ${ex.emoji} ${ex.name}（MET ${ex.met}）消耗掉：<br>
+        <b>约需运动 ${sportTimeText(min)}</b><br>
+        <span class="sport-sub">（按 ${sportState.weight}kg 体重估算，每小时约烧 ${hourly} kcal）</span>`;
+    box.classList.remove('hidden');
+}
+
+/** 把计算器购物车合计带入吃动换算 */
+function sportLoadCalcTotal() {
+    const total = state.calcCart.reduce((s, it) => {
+        const f = getFood(it.id);
+        return (f && isValidQty(f, it.qty)) ? s + calcSub(f, Number(it.qty)) : s;
+    }, 0);
+    if (total <= 0) {
+        showToast('🛒 计算器里还没有食物，先去加点料再换算');
+        return;
+    }
+    document.getElementById('sportConvKcal').value = Math.round(total);
+    sportState.mode = 'convert';
+    renderSportModeTabs();
+    renderSportPanels();
+    showToast(`已带入计算器合计 ${Math.round(total)} kcal`);
+    runSportConvert();
+}
+
+/** 从食物详情进入：把该食物热量直接带进「吃动换算」 */
+function openSportConvert(kcal) {
+    sportState.mode = 'convert';
+    switchPage('sport');
+    renderSportModeTabs();
+    renderSportPanels();
+    renderSportTip();
+    const inp = document.getElementById('sportConvKcal');
+    if (inp && kcal > 0) inp.value = Math.round(kcal);
+    runSportConvert();
+}
+
+/** 动作库 MET 参考表（按分组渲染） */
+function renderSportLibrary() {
+    const box = document.getElementById('sportLibrary');
+    if (!box) return;
+    const groups = ['有氧', '球类', '力量与柔韧'];
+    box.innerHTML = groups.map(g => {
+        const items = EXERCISE_LIB.filter(e => e.group === g);
+        if (!items.length) return '';
+        return `
+            <div class="sport-group">
+                <h4>${g}</h4>
+                <table>
+                    <thead><tr><th>动作</th><th>MET</th><th>安全提示</th></tr></thead>
+                    <tbody>${items.map(e => `
+                        <tr>
+                            <td>${e.emoji} ${esc(e.name)}</td>
+                            <td>${e.met}</td>
+                            <td>${esc(e.tips)}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+    }).join('');
+}
+
+/** 运动页控件：体重 / 计算按钮 / 回车 / 带入计算器 */
+function bindSports() {
+    const w = document.getElementById('sportWeight');
+    w.value = sportState.weight;
+    w.addEventListener('change', () => {
+        const v = Number(w.value);
+        if (!(v > 0)) {
+            showToast('👤 体重要大于 0。');
+            w.value = sportState.weight;
+            return;
+        }
+        sportState.weight = v;
+        saveLS(LS_KEYS.settings, { weight: v });
+    });
+
+    document.getElementById('sportBurnBtn').addEventListener('click', runSportBurn);
+    const t = document.getElementById('sportBurnTime');
+    t.addEventListener('keydown', (e) => { if (e.key === 'Enter') runSportBurn(); });
+    document.getElementById('sportConvBtn').addEventListener('click', runSportConvert);
+    const k = document.getElementById('sportConvKcal');
+    k.addEventListener('keydown', (e) => { if (e.key === 'Enter') runSportConvert(); });
+    document.getElementById('sportCalcLoad').addEventListener('click', sportLoadCalcTotal);
+}
+
+/* ==========================================================
  * 模块四：关于页
  * ========================================================== */
 
@@ -1700,6 +1909,13 @@ document.addEventListener('DOMContentLoaded', () => {
     bindSort();
     bindCuisines();          // 菜系页搜索 / 排序
     bindBrands();            // 品牌页搜索 / 排序
+    sportState.weight = loadSportWeight();  // 模块七：读取体重设置（默认 60kg）
+    renderSportModeTabs();   // 模块七：运动 / 吃动模式切换
+    renderSportPanels();     // 模块七：按模式显隐面板
+    renderSportSelects();    // 模块七：动作下拉框
+    renderSportTip();        // 模块七：安全提示
+    renderSportLibrary();    // 模块七：MET 参考表
+    bindSports();            // 模块七：体重 / 计算 / 带入计算器
     bindScanPlaceholder();  // 🍜 拍照识别按钮（占位）
     bindCalcActions();      // 模块二：计算器按钮
     renderCalculator();     // 模块二：购物车（含 localStorage 恢复）

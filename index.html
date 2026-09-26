@@ -238,13 +238,58 @@
             </div>
         </section>
 
-        <!-- ================= 模块七：运动消耗（建设中） ================= -->
+        <!-- ================= 模块七：运动消耗 ================= -->
         <section class="page" id="page-sport">
-            <div class="building-card">
-                <div class="building-emoji">🏃</div>
-                <h3>运动消耗 · 建设中</h3>
-                <p>设置体重，选动作（跑步 / 跳绳 / 器械…），估算「吃掉的热量要动多久才消耗掉」～</p>
-                <button class="empty-btn" onclick="switchPage('food')">先逛逛食物库 →</button>
+            <div class="page-head">
+                <h2>运动消耗</h2>
+                <p>按 MET × 体重估算消耗，算一算「吃进去的热量要动多久」～</p>
+            </div>
+
+            <!-- 免责声明 -->
+            <div class="brand-disclaimer">
+                🧮 消耗均为<b>估算值</b>，实际因人而异（体重 / 强度 / 地形都会影响）；有伤病或基础疾病请遵医嘱再运动。
+            </div>
+
+            <!-- 体重设置 -->
+            <div class="sport-weight-row">
+                <label for="sportWeight">👤 我的体重</label>
+                <input type="number" id="sportWeight" min="20" max="300" step="0.1">
+                <span class="weight-unit">kg</span>
+                <span class="weight-hint">默认 60 kg，本机记忆，改完即刻生效</span>
+            </div>
+
+            <!-- 模式切换：运动算消耗 / 吃动换算 -->
+            <div class="mode-tabs" id="sportModeTabs"></div>
+
+            <!-- 模式 A：运动算消耗 -->
+            <div class="sport-panel" id="sportBurnPanel">
+                <div class="sport-row">
+                    <select id="sportBurnAct" class="sport-select"></select>
+                    <input type="number" id="sportBurnTime" min="1" max="600" step="1" placeholder="时长（分钟）">
+                    <button class="btn-add" id="sportBurnBtn">🔥 算算消耗</button>
+                </div>
+                <div class="sport-result hidden" id="sportBurnResult"></div>
+                <div class="sport-tip" id="sportBurnTip"></div>
+            </div>
+
+            <!-- 模式 B：吃动换算 -->
+            <div class="sport-panel hidden" id="sportConvPanel">
+                <div class="sport-row">
+                    <input type="number" id="sportConvKcal" min="1" step="1" placeholder="吃下了多少 kcal">
+                    <button type="button" class="btn-load" id="sportCalcLoad">⇄ 带入计算器合计</button>
+                </div>
+                <div class="sport-row">
+                    <select id="sportConvAct" class="sport-select"></select>
+                    <button class="btn-add" id="sportConvBtn">⏱ 要动多久</button>
+                </div>
+                <div class="sport-result hidden" id="sportConvResult"></div>
+                <div class="sport-tip" id="sportConvTip"></div>
+            </div>
+
+            <!-- 动作库 MET 参考 -->
+            <div class="sport-lib">
+                <h3>常见动作 MET 参考（1 MET ≈ 静坐的消耗速度，数值越高越累）</h3>
+                <div id="sportLibrary"></div>
             </div>
         </section>
 

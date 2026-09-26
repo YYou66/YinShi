@@ -47,6 +47,25 @@ const BRANDS_LIB = [
     { key: 'dominos',    name: '达美乐',   emoji: '🍕', type: '披萨快餐' },
 ];
 
+/* ---------- 运动消耗：动作库（MET 值 + 器械安全提示，模块七使用） ---------- */
+/* 消耗估算：kcal = MET × 体重(kg) × 时长(h)；1 MET ≈ 静坐消耗 */
+const EXERCISE_LIB = [
+    { key: 'run8',    name: '跑步（8km/h）',        emoji: '🏃', met: 8.3, group: '有氧', tips: '前脚掌过渡着地、膝盖微屈缓冲；膝盖不适请降速或改快走' },
+    { key: 'jog6',    name: '慢跑（6km/h）',        emoji: '🏃', met: 6.0, group: '有氧', tips: '初学者友好强度，听着别掉进「越跑越痛」的坑，痛就停' },
+    { key: 'walk5',   name: '快走（5km/h）',        emoji: '🚶', met: 4.3, group: '有氧', tips: '最安全的入门有氧，摆臂迈大步，久坐人群友好' },
+    { key: 'bike15',  name: '骑行（中速 15km/h）',  emoji: '🚴', met: 6.8, group: '有氧', tips: '车座高度调到膝盖微屈踩到底，头盔必须戴' },
+    { key: 'swim',    name: '游泳（自由泳）',       emoji: '🏊', met: 8.0, group: '有氧', tips: '下水前充分热身防抽筋；空腹或刚吃饱都不宜下水' },
+    { key: 'rope',    name: '跳绳（中速）',         emoji: '🤸', met: 11.0, group: '有氧', tips: '前脚掌起跳、落地屈膝缓冲，选防滑软地面，护踝' },
+    { key: 'elliptical', name: '椭圆机',            emoji: '🏃', met: 5.5, group: '有氧', tips: '膝盖友好型器械，身体不过度前倾，脚掌踩实' },
+    { key: 'stairs',  name: '爬楼梯',               emoji: '🧗', met: 8.0, group: '有氧', tips: '上楼锻炼、下楼坐电梯护膝；膝盖不适者慎选' },
+    { key: 'badminton', name: '羽毛球',             emoji: '🏸', met: 5.5, group: '球类', tips: '急停变向多，穿防滑球鞋，热身手腕和肩关节' },
+    { key: 'basketball', name: '篮球',              emoji: '🏀', met: 6.5, group: '球类', tips: '起跳落地多，先动态热身，踝膝有伤可戴护具' },
+    { key: 'yoga',    name: '瑜伽',                 emoji: '🧘', met: 3.0, group: '力量与柔韧', tips: '循序渐进不追求到位，关节有弹响别硬撑' },
+    { key: 'strength', name: '力量训练（自重/器械）', emoji: '🏋️', met: 4.0, group: '力量与柔韧', tips: '动作标准优先于重量，大重量请人保护，发力别憋气' },
+    { key: 'hiit',    name: 'HIIT 高强度间歇',      emoji: '⚡', met: 9.5, group: '有氧', tips: '心脑血管基础病者慎练；务必先热身，组间留足恢复' },
+    { key: 'dance',   name: '舞蹈 / 有氧操',        emoji: '💃', met: 6.5, group: '有氧', tips: '跟好节奏别猛发力，选择通风开阔的场地' },
+];
+
 /* ==========================================================
  * 设计系统常量（全局数据模型，供所有模块复用）
  * ========================================================== */
