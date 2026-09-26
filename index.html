@@ -48,7 +48,7 @@
                 <div class="search-box">
                     <span class="search-icon">🔍</span>
                     <input type="text" id="searchInput" placeholder="搜索食物名称，比如「奶茶」「鸡排」…" autocomplete="off">
-                    <button class="cam-btn" id="camBtn" title="拍照识别（模拟版）" aria-label="拍照识别">📷</button>
+                    <button class="cam-btn" id="camBtn" title="拍照识别" aria-label="拍照识别">📷</button>
                     <button class="search-clear" id="searchClear" aria-label="清空搜索">✕</button>
                 </div>
 
@@ -492,6 +492,67 @@
         <div class="modal modal-wide">
             <button class="modal-x" id="detailClose" aria-label="关闭">✕</button>
             <div id="detailBody"></div>
+        </div>
+    </div>
+
+    <!-- ============ 拍照识别弹窗（真·视觉模型） ============ -->
+    <div class="modal-overlay" id="photoModal">
+        <div class="modal modal-wide">
+            <button class="modal-x" id="photoClose" aria-label="关闭">✕</button>
+            <h3>📷 拍照识别</h3>
+
+            <!-- 接入设置（未配置 key 时默认展示） -->
+            <div id="photoConfig">
+                <p class="photo-intro">接入视觉模型识别照片里的食物热量。<b>API Key 只保存在你自己的浏览器</b>（localStorage），不会写进代码仓库、也不会经过本站服务器。</p>
+                <div class="modal-row">
+                    <label for="photoPreset">服务商</label>
+                    <select id="photoPreset">
+                        <option value="zhipu">智谱 GLM · glm-4.1v-thinking-flash</option>
+                        <option value="qwen">通义千问 · qwen-vl-plus</option>
+                        <option value="custom">自定义（OpenAI 兼容）</option>
+                    </select>
+                </div>
+                <div class="modal-row">
+                    <label for="photoEndpoint">接口地址</label>
+                    <input type="text" id="photoEndpoint" placeholder="https://…/chat/completions">
+                </div>
+                <div class="modal-row">
+                    <label for="photoModel">模型名</label>
+                    <input type="text" id="photoModel" placeholder="glm-4.1v-thinking-flash">
+                </div>
+                <div class="modal-row">
+                    <label for="photoKey">API Key</label>
+                    <input type="password" id="photoKey" placeholder="粘贴你的 API Key" autocomplete="off">
+                    <button class="photo-eye" id="photoKeyShow" type="button" aria-label="显示/隐藏 Key">👁</button>
+                </div>
+                <p class="photo-hint" id="photoCfgHint"></p>
+                <div class="modal-actions">
+                    <button class="modal-btn-cancel" id="photoTest">🔌 测试连接</button>
+                    <button class="modal-btn-ok" id="photoSave">💾 保存设置</button>
+                </div>
+            </div>
+
+            <!-- 已配置 → 拍照区 -->
+            <div id="photoShoot" class="hidden">
+                <label class="photo-drop" for="photoInput" id="photoDrop">
+                    <span class="photo-drop-emoji">📸</span>
+                    <span>点击拍照 / 选择图片</span>
+                    <input type="file" id="photoInput" accept="image/*" capture="environment">
+                </label>
+                <img id="photoPreview" class="photo-preview hidden" alt="识别预览">
+                <div class="modal-actions">
+                    <button class="modal-btn-cancel" id="photoRetake">🗑 清空</button>
+                    <button class="modal-btn-ok" id="photoGo" disabled>🔍 开始识别</button>
+                </div>
+                <div class="photo-loading hidden" id="photoLoading">
+                    <span class="photo-spin">📷</span> 正在识别食物（视觉模型思考中…）
+                </div>
+                <div id="photoResult"></div>
+                <div class="photo-foot">
+                    <button class="photo-cfg-link" id="photoConfigBtn" type="button">⚙️ 接入设置</button>
+                    <span class="photo-disclaimer">识别结果仅供参考 · 以包装 / 实际称重为准</span>
+                </div>
+            </div>
         </div>
     </div>
 

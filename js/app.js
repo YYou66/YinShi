@@ -2061,13 +2061,460 @@ function bindAboutActions() {
     });
 }
 
-/** 📷 拍照识别（模拟版）占位：后续模块上线 */
-function bindScanPlaceholder() {
+/* ==========================================================
+ * 模块十：拍照识别（真·视觉模型，OpenAI 兼容端点，key 仅存本机）
+ * ----------------------------------------------------------
+ *   📷 搜索框按钮 → 弹窗：填 endpoint/model/key（存 ys.v3.vision）
+ *   选图/拍照 → canvas 缩图 → 多模态请求 → 解析 JSON
+ *   → 模糊匹配食物库（FOODS/CUI/CN/BRAND）→ 加计算器/记一笔/详情
+ * ========================================================== */
+const LS_VISION = 'ys.v3.vision';   // { preset, endpoint, model, key }
+
+const VISION_PRESETS = {
+    zhipu: {
+        endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+        model: 'glm-4.1v-thinking-flash',
+        hint: '在 bigmodel.cn 控制台创建 API Key；GLM-4V-Flash 免费，glm-4.1v-thinking-flash 也极低价。',
+    },
+    qwen: {
+        endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+        model: 'qwen-vl-plus',
+        hint: '在阿里云百炼（bailian.console.aliyun.com）创建 API Key（sk- 开头），需开通 DashScope 服务。',
+    },
+    custom: {
+        endpoint: '',
+        model: '',
+        hint: '填写任意 OpenAI 兼容的 /chat/completions 地址与多模态模型名（须支持 image_url）。',
+    },
+};
+
+const VISION_SYS_PROMPT =
+    '你是食物热量识别助手。只输出一个 JSON 对象，禁止任何解释、markdown 或代码块。\n' +
+    'JSON 字段：\n' +
+    'is_food: 图片主体是否为食物或饮品（true/false）\n' +
+    'name: 主要食物的中文通用名（如「香煎鸡胸」「珍珠奶茶」），不是食物时给空字符串\n' +
+    'kcal: 这份食物的估算总热量（整数，单位 kcal），不是食物时为 0\n' +
+    'portion: 份量描述（如「1 份」「1 杯」「约 200g」）\n' +
+    'confidence: 0 到 1 的置信度\n' +
+    'note: 一句话依据或提醒（不超过 30 字）';
+
+const photoState = { cfgOpen: false, busy: false, img: null, result: null };
+
+/** 读取视觉接入配置（默认智谱预设，key 空） */
+function loadVisionCfg() {
+    const saved = loadLS(LS_VISION, {});
+    return {
+        preset: saved.preset || 'zhipu',
+        endpoint: saved.endpoint || VISION_PRESETS.zhipu.endpoint,
+        model: saved.model || VISION_PRESETS.zhipu.model,
+        key: saved.key || '',
+    };
+}
+function saveVisionCfg(cfg) { saveLS(LS_VISION, cfg); }
+
+/** 配置表单 ↔ 视图切换（无 key 显示设置区，有 key 显示拍照区） */
+function renderPhotoView() {
+    const cfg = loadVisionCfg();
+    const has = !!(cfg.key && cfg.endpoint && cfg.model);
+    const showCfg = !has || photoState.cfgOpen;
+    const c = document.getElementById('photoConfig');
+    const s = document.getElementById('photoShoot');
+    if (c) c.classList.toggle('hidden', !showCfg);
+    if (s) s.classList.toggle('hidden', showCfg);
+}
+
+/** 把已存配置填进设置表单 */
+function renderPhotoCfgForm() {
+    const cfg = loadVisionCfg();
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('photoPreset', cfg.preset);
+    set('photoEndpoint', cfg.endpoint);
+    set('photoModel', cfg.model);
+    set('photoKey', cfg.key);
+    const hint = document.getElementById('photoCfgHint');
+    if (hint) hint.textContent = (VISION_PRESETS[cfg.preset] || VISION_PRESETS.custom).hint;
+}
+
+/** 从表单读配置 */
+function readVisionCfgForm() {
+    const g = id => (document.getElementById(id) || {}).value || '';
+    return {
+        preset: g('photoPreset') || 'zhipu',
+        endpoint: g('photoEndpoint').trim(),
+        model: g('photoModel').trim(),
+        key: g('photoKey').trim(),
+    };
+}
+
+function openPhotoModal() {
+    photoState.cfgOpen = !loadVisionCfg().key;
+    renderPhotoCfgForm();
+    renderPhotoView();
+    document.getElementById('photoModal').classList.add('show');
+}
+
+function closePhotoModal() {
+    document.getElementById('photoModal').classList.remove('show');
+}
+
+/** 选图 → canvas 缩到最长边 1024 的 JPEG（控制请求体积） */
+function handlePhotoFile(file) {
+    if (!file || !file.type.startsWith('image/')) { showToast('请选择图片文件 📷'); return; }
+    const reader = new FileReader();
+    reader.onload = () => downscalePhoto(String(reader.result));
+    reader.onerror = () => showToast('图片读取失败，请重试');
+    reader.readAsDataURL(file);
+}
+
+function downscalePhoto(src) {
+    const img = new Image();
+    img.onload = () => {
+        const max = 1024;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        photoState.img = canvas.toDataURL('image/jpeg', 0.82);
+        photoState.result = null;
+        const pv = document.getElementById('photoPreview');
+        pv.src = photoState.img;
+        pv.classList.remove('hidden');
+        document.getElementById('photoGo').disabled = false;
+        document.getElementById('photoResult').innerHTML = '';
+    };
+    img.onerror = () => showToast('图片解码失败，换一张试试');
+    img.src = src;
+}
+
+/** 清空当前图片与结果 */
+function resetPhotoShot() {
+    photoState.img = null;
+    photoState.result = null;
+    const pv = document.getElementById('photoPreview');
+    pv.src = '';
+    pv.classList.add('hidden');
+    const inp = document.getElementById('photoInput');
+    if (inp) inp.value = '';
+    document.getElementById('photoGo').disabled = true;
+    document.getElementById('photoResult').innerHTML = '';
+}
+
+/** 测试连接：最小文本请求验证 endpoint + key + model */
+async function testVisionConnection() {
+    const cfg = readVisionCfgForm();
+    if (!cfg.endpoint || !cfg.model || !cfg.key) {
+        showToast('接口地址 / 模型名 / API Key 都要填');
+        return;
+    }
+    const btn = document.getElementById('photoTest');
+    btn.disabled = true;
+    try {
+        const resp = await fetch(cfg.endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.key },
+            body: JSON.stringify({
+                model: cfg.model,
+                messages: [{ role: 'user', content: '回复 ok' }],
+                max_tokens: 200,
+            }),
+        });
+        const text = await resp.text();
+        if (resp.ok) {
+            showToast(`✅ 连接成功 · ${cfg.model}`);
+        } else {
+            showToast(`❌ 连接失败 HTTP ${resp.status}：${visionErrText(resp.status, text)}`);
+        }
+    } catch (e) {
+        showToast('❌ 网络或跨域失败：' + (e && e.message ? e.message : e));
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+/** 从 API 错误响应提炼人话 */
+function visionErrText(status, text) {
+    let msg = 'HTTP ' + status;
+    try {
+        const j = JSON.parse(text);
+        msg = (j.error && (j.error.message || j.error.msg)) || j.message || msg;
+    } catch (e) { /* 非 JSON 原文截断 */ }
+    if (status === 401 || status === 403) msg = 'API Key 无效或过期（' + status + '），请检查设置。' + (msg ? ' · ' + msg : '');
+    if (status === 429) msg = '请求过于频繁或额度用尽（429）。' + (msg ? ' · ' + msg : '');
+    return String(msg).slice(0, 160);
+}
+
+/** 主流程：识别 */
+async function runPhotoRecognize() {
+    if (photoState.busy) return;
+    const cfg = loadVisionCfg();
+    if (!cfg.key || !cfg.endpoint || !cfg.model) {
+        photoState.cfgOpen = true;
+        renderPhotoView();
+        showToast('请先完成接入设置（填 API Key）');
+        return;
+    }
+    if (!photoState.img) { showToast('先拍一张或选一张图片 📷'); return; }
+
+    photoState.busy = true;
+    const go = document.getElementById('photoGo');
+    go.disabled = true;
+    document.getElementById('photoLoading').classList.remove('hidden');
+    document.getElementById('photoResult').innerHTML = '';
+
+    let resp = null;
+    try {
+        resp = await fetch(cfg.endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.key },
+            body: JSON.stringify({
+                model: cfg.model,
+                temperature: 0.2,
+                max_tokens: 1500,
+                messages: [
+                    { role: 'system', content: VISION_SYS_PROMPT },
+                    {
+                        role: 'user', content: [
+                            { type: 'text', text: '请识别这张图片里的食物并按要求输出 JSON。' },
+                            { type: 'image_url', image_url: { url: photoState.img } },
+                        ],
+                    },
+                ],
+            }),
+        });
+    } catch (e) {
+        renderPhotoCard(null, '', '❌ 网络或跨域失败：' + (e && e.message ? e.message : e) + '（检查网络 / 接口地址；浏览器需允许跨域）');
+        photoState.busy = false;
+        go.disabled = false;
+        document.getElementById('photoLoading').classList.add('hidden');
+        return;
+    }
+
+    const text = await resp.text();
+    document.getElementById('photoLoading').classList.add('hidden');
+    photoState.busy = false;
+    go.disabled = false;
+
+    if (!resp.ok) {
+        renderPhotoCard(null, '', '❌ 识别失败：' + visionErrText(resp.status, text));
+        return;
+    }
+
+    let content = '';
+    try {
+        const data = JSON.parse(text);
+        const msg = (data.choices && data.choices[0] && data.choices[0].message) || {};
+        content = msg.content || msg.reasoning_content || '';
+    } catch (e) {
+        renderPhotoCard(null, text, '❌ 接口返回了无法解析的内容');
+        return;
+    }
+
+    const res = parseVisionJSON(content);
+    if (!res) {
+        renderPhotoCard(null, content, '⚠️ 识别完成但没能解析出结构化结果（模型输出异常）');
+        return;
+    }
+    photoState.result = res;
+    renderPhotoCard(res, content, '');
+}
+
+/** 容错解析：剥代码块 → 提取首个 { 到末个 }，逐段尝试 JSON.parse */
+function parseVisionJSON(text) {
+    let s = String(text == null ? '' : text).trim();
+    if (!s) return null;
+    s = s.replace(/```(?:json)?/gi, '');
+    const first = s.indexOf('{');
+    // 从每个 { 开始，向后找可解析的 }（first 为 -1 时直接跳到正则兜底）
+    for (let i = first; i !== -1 && i < s.length; i = s.indexOf('{', i + 1)) {
+        for (let j = s.lastIndexOf('}'); j > i; j = s.lastIndexOf('}', j - 1)) {
+            try { return JSON.parse(s.slice(i, j + 1)); } catch (e) { /* 继续收窄 */ }
+        }
+        if (i === first && s.indexOf('{', i + 1) === -1) break;
+    }
+    // 兜底：正则抽字段
+    const kcal = s.match(/"kcal"\s*:\s*(\d+)/);
+    const name = s.match(/"name"\s*:\s*"([^"]*)"/);
+    if (kcal || name) {
+        return {
+            is_food: true,
+            name: name ? name[1] : '',
+            kcal: kcal ? Number(kcal[1]) : 0,
+            portion: '',
+            confidence: 0.5,
+            note: '（正则兜底解析）',
+        };
+    }
+    return null;
+}
+
+/** 最长公共子串长度（用于模糊匹配食物名） */
+function lcsLen(a, b) {
+    let best = 0;
+    const dp = Array(b.length + 1).fill(0);
+    for (let i = 1; i <= a.length; i++) {
+        let diag = 0;
+        for (let j = 1; j <= b.length; j++) {
+            const cur = dp[j];
+            if (a[i - 1] === b[j - 1]) { dp[j] = diag + 1; if (dp[j] > best) best = dp[j]; }
+            else dp[j] = 0;
+            diag = cur;
+        }
+    }
+    return best;
+}
+
+/** 识别名 → 匹配全库（FOODS + CUI + CN + BRAND） */
+function visionFindFood(rawName) {
+    const norm = s => String(s || '').toLowerCase()
+        .replace(/[（(][^)）]*[)）]/g, '')
+        .replace(/[\s·・\-、,，.。]/g, '');
+    const n = norm(rawName);
+    if (!n) return null;
+    const all = [...FOODS, ...CUI_FOODS, ...CN_FOODS, ...BRAND_FOODS];
+    let best = null, bestScore = 0;
+    for (const f of all) {
+        const fn = norm(f.name);
+        let score = 0;
+        if (fn === n) score = 1000;
+        else if (fn.includes(n) || n.includes(fn)) score = 500 + Math.min(fn.length, n.length) * 10;
+        else {
+            const common = lcsLen(fn, n);
+            if (common >= 2 && common >= Math.min(fn.length, n.length) - 1) score = common * 20;
+        }
+        if (score > bestScore) { bestScore = score; best = f; }
+    }
+    return bestScore >= 40 ? best : null;
+}
+
+/** 渲染识别结果卡（匹配 / 估算 / 非食物 / 各类错误共用） */
+function renderPhotoCard(res, raw, errMsg) {
+    const box = document.getElementById('photoResult');
+    if (!box) return;
+    const rawEsc = esc(String(raw == null ? '' : String(raw)).slice(0, 300));
+
+    if (errMsg) {
+        box.innerHTML = `
+            <div class="photo-card photo-err">
+                <div>${esc(errMsg)}</div>
+                ${raw ? `<details class="photo-raw"><summary>查看原始返回</summary><pre>${rawEsc}</pre></details>` : ''}
+            </div>`;
+        return;
+    }
+    if (!res) {
+        box.innerHTML = `
+            <div class="photo-card photo-err">
+                <div>⚠️ 没能解析出识别结果</div>
+                <details class="photo-raw"><summary>查看原始返回</summary><pre>${rawEsc}</pre></details>
+            </div>`;
+        return;
+    }
+    if (res.is_food === false || res.is_food === 'false') {
+        box.innerHTML = `
+            <div class="photo-card">
+                <div class="photo-card-head">🙈 这张图里好像不是食物</div>
+                <div class="photo-note">${esc(res.note || '换个角度拍食物主体试试～')}</div>
+            </div>`;
+        return;
+    }
+
+    const kcal = Math.max(0, Math.round(Number(res.kcal) || 0));
+    const conf = Math.round(Math.min(1, Math.max(0, Number(res.confidence) || 0)) * 100);
+    const matched = visionFindFood(res.name);
+    const matchedHTML = matched ? `
+        <div class="photo-match">
+            <span class="photo-match-tag">已匹配食物库</span>
+            <span class="row-emoji">${matched.emoji}</span>
+            <div class="photo-match-info">
+                <div class="pick-name">${esc(matched.name)}</div>
+                <div class="pick-base">${foodBaseText(matched)}</div>
+            </div>
+            <b class="pick-cal">${matched.cal} kcal</b>
+        </div>
+        <div class="photo-actions">
+            <button class="btn-add mini photo-add">＋ 加计算器</button>
+            <button class="btn-note mini photo-note-btn">✎ 记一笔</button>
+            <button class="photo-link photo-detail">📖 详情 →</button>
+        </div>` : `
+        <div class="photo-actions">
+            <button class="photo-link photo-sport">⏱ 这热量要动多久？</button>
+        </div>`;
+
+    box.innerHTML = `
+        <div class="photo-card">
+            <div class="photo-card-head">
+                🔍 识别结果 <span class="photo-conf">置信度 ${conf}%</span>
+            </div>
+            <div class="photo-food">
+                <span class="photo-food-name">${esc(res.name || '未知食物')}</span>
+                <span class="photo-portion">${esc(res.portion || '')}</span>
+                <span class="photo-kcal">≈ <b>${kcal}</b> kcal</span>
+            </div>
+            ${res.note ? `<div class="photo-note">${esc(res.note)}</div>` : ''}
+            ${matchedHTML}
+            <div class="photo-disclaimer-inline">⚠️ 估算值，以包装 / 实际称重为准</div>
+        </div>`;
+
+    // 绑定结果内按钮
+    if (matched) {
+        box.querySelector('.photo-add').addEventListener('click', () => addToCalculator(matched.id));
+        box.querySelector('.photo-note-btn').addEventListener('click', () => { closePhotoModal(); openQuickRecord(matched); });
+        box.querySelector('.photo-detail').addEventListener('click', () => { closePhotoModal(); openFoodDetail(matched); });
+    } else {
+        const sportBtn = box.querySelector('.photo-sport');
+        if (sportBtn) sportBtn.addEventListener('click', () => {
+            if (kcal > 0) { closePhotoModal(); openSportConvert(kcal); }
+            else showToast('这份估算热量为 0，无法换算');
+        });
+    }
+}
+
+/** 📷 拍照识别入口与弹窗事件 */
+function bindPhoto() {
     const cam = document.getElementById('camBtn');
-    if (!cam) return;
-    cam.addEventListener('click', () => {
-        showToast('📷 拍照识别（模拟版）将在后续模块上线，敬请期待～');
+    if (cam) cam.addEventListener('click', openPhotoModal);
+
+    document.getElementById('photoClose').addEventListener('click', closePhotoModal);
+    document.getElementById('photoModal').addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'photoModal') closePhotoModal();
     });
+
+    /* 设置区 */
+    document.getElementById('photoPreset').addEventListener('change', (e) => {
+        const p = VISION_PRESETS[e.target.value] || VISION_PRESETS.custom;
+        document.getElementById('photoEndpoint').value = p.endpoint;
+        document.getElementById('photoModel').value = p.model;
+        document.getElementById('photoCfgHint').textContent = p.hint;
+    });
+    document.getElementById('photoKeyShow').addEventListener('click', () => {
+        const k = document.getElementById('photoKey');
+        k.type = k.type === 'password' ? 'text' : 'password';
+    });
+    document.getElementById('photoSave').addEventListener('click', () => {
+        const cfg = readVisionCfgForm();
+        if (!cfg.endpoint || !cfg.model || !cfg.key) {
+            showToast('接口地址 / 模型名 / API Key 都要填');
+            return;
+        }
+        saveVisionCfg(cfg);
+        photoState.cfgOpen = false;
+        renderPhotoView();
+        showToast('✅ 接入设置已保存（仅存本机浏览器）');
+    });
+    document.getElementById('photoTest').addEventListener('click', testVisionConnection);
+
+    /* 拍照区 */
+    document.getElementById('photoConfigBtn').addEventListener('click', () => {
+        photoState.cfgOpen = true;
+        renderPhotoCfgForm();
+        renderPhotoView();
+    });
+    document.getElementById('photoInput').addEventListener('change', (e) => {
+        handlePhotoFile(e.target.files && e.target.files[0]);
+    });
+    document.getElementById('photoRetake').addEventListener('click', resetPhotoShot);
+    document.getElementById('photoGo').addEventListener('click', runPhotoRecognize);
 }
 
 /* ==========================================================
@@ -2103,7 +2550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderRecipeGrid();      // 模块八：模板列表
     renderRecipePick();      // 模块八：低卡优选 Top8
     bindRecipe();            // 模块八：目标保存
-    bindScanPlaceholder();  // 🍜 拍照识别按钮（占位）
+    bindPhoto();             // 模块十：拍照识别（真·视觉模型）
     bindCalcActions();      // 模块二：计算器按钮
     renderCalculator();     // 模块二：购物车（含 localStorage 恢复）
     updateTabBadge();       // 购物车徽标
