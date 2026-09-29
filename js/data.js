@@ -53,6 +53,11 @@ const BRANDS_LIB = [
     { key: 'zui',        name: '醉得意',   emoji: '🥘', type: '中式正餐' },
     { key: 'chabaidao',  name: '茶百道',   emoji: '🍹', type: '新式茶饮' },
     { key: 'auntie',     name: '沪上阿姨', emoji: '🫖', type: '新式茶饮' },
+    { key: 'chayan',     name: '茶颜悦色', emoji: '🍃', type: '国风茶饮' },
+    { key: 'nayuki',     name: '奈雪的茶', emoji: '🍓', type: '茶饮软欧包' },
+    { key: 'yihetang',   name: '益禾堂',   emoji: '🥛', type: '平价茶饮' },
+    { key: 'ph',         name: '必胜客',   emoji: '🫓', type: '披萨西餐' },
+    { key: 'dicos',      name: '德克士',   emoji: '🐔', type: '西式快餐' },
 ];
 
 /* ---------- 运动消耗：动作库（MET 值 + 器械安全提示，模块七使用） ---------- */
