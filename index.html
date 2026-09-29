@@ -20,7 +20,7 @@
                     <p>小手账 · 记每一口</p>
                 </div>
             </div>
-            <!-- 八大模块 Tab 切换（可横向滚动） -->
+            <!-- 九大模块 Tab 切换（可横向滚动） -->
             <nav class="tab-nav" role="tablist">
                 <button class="tab-btn active" data-page="food">🍜 食物库</button>
                 <button class="tab-btn" data-page="calculator">🧮 热量计算器 <span class="tab-badge hidden" id="calcBadge">0</span></button>
@@ -28,6 +28,7 @@
                 <button class="tab-btn" data-page="brands">🏪 品牌热量库</button>
                 <button class="tab-btn" data-page="sport">🏃 运动消耗</button>
                 <button class="tab-btn" data-page="recipe">🥗 营养食谱</button>
+                <button class="tab-btn" data-page="science">🔬 食品科普</button>
                 <button class="tab-btn" data-page="records">📖 饮食记录 <span class="tab-badge hidden" id="recBadge">0</span></button>
                 <button class="tab-btn" data-page="about">💬 关于</button>
             </nav>
@@ -333,6 +334,44 @@
             </div>
         </section>
 
+        <!-- ================= 模块九补强：食品科普 ================= -->
+        <section class="page" id="page-science">
+            <div class="page-head">
+                <h2>食品科普</h2>
+                <p>10 个主题的营养小知识 + 全库食物科普短句，点关联食物可看详情～</p>
+            </div>
+
+            <!-- 免责横幅 -->
+            <div class="brand-disclaimer">
+                ⚠️ 本页内容为<b>公开营养学常识的通俗整理</b>，仅供个人减脂参考，不构成医疗建议；个体差异大，如有疾病、孕产期或特殊需求，请咨询医生 / 注册营养师。
+            </div>
+
+            <!-- 今日一句 -->
+            <div class="sci-daily" id="sciDaily"></div>
+
+            <!-- 搜索 -->
+            <div class="search-wrap">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="sciSearch" placeholder="搜科普关键词，比如「糖」「蛋白」「奶茶」…" autocomplete="off">
+                    <button class="search-clear" id="sciClear" aria-label="清空搜索">✕</button>
+                </div>
+            </div>
+
+            <!-- 主题筛选条（JS 渲染） -->
+            <div class="cuisine-bar" id="sciChips"></div>
+
+            <div class="result-count" id="sciCount"></div>
+            <div class="sci-grid" id="sciGrid"></div>
+
+            <!-- 空状态 -->
+            <div class="empty-state hidden" id="sciEmpty">
+                <div class="empty-emoji">🔬</div>
+                <h3>没找到相关科普</h3>
+                <p id="sciEmptyText">换个主题或关键词试试？</p>
+            </div>
+        </section>
+
         <!-- ================= 模块三：饮食记录 ================= -->
         <section class="page" id="page-records">
             <div class="page-head">
@@ -594,6 +633,7 @@
     <script src="data/foods-cn-6.js"></script>
     <script src="data/brands-1.js"></script>
     <script src="data/brands-2.js"></script>
+    <script src="data/science.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

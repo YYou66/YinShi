@@ -2062,6 +2062,146 @@ function bindAboutActions() {
 }
 
 /* ==========================================================
+ * 模块九补强：食品科普页（专题科普 50 条 + 全库 science 字段汇总）
+ * ----------------------------------------------------------
+ *   🔬 新 Tab：今日一句 + 关键词搜索 + 10 主题 chips 筛选
+ *   卡片内「关联食物」chip → 统一详情页；免责横幅在页面顶部
+ * ========================================================== */
+const scienceState = { topic: 'all', keyword: '' };
+
+/** 汇总条目：SCIENCE_NOTES 专题 + 全库食物自带 science 字段（运行时收集） */
+function collectScienceItems() {
+    const items = (typeof SCIENCE_NOTES !== 'undefined' ? SCIENCE_NOTES : [])
+        .map(n => ({ key: 'n' + n.id, topic: n.topic, title: n.title, text: n.text, keys: n.keys || [], food: null }));
+    [...FOODS, ...CUI_FOODS, ...CN_FOODS, ...BRAND_FOODS].forEach(f => {
+        if (f.science) items.push({ key: 'f' + f.id, topic: 'food', title: f.name, text: f.science, keys: [], food: f });
+    });
+    return items;
+}
+
+/** 主题 + 关键词过滤 */
+function getScienceFiltered() {
+    const kw = scienceState.keyword;
+    return collectScienceItems().filter(it => {
+        const okTopic = scienceState.topic === 'all' || it.topic === scienceState.topic;
+        const okKw = !kw || it.title.includes(kw) || it.text.includes(kw);
+        return okTopic && okKw;
+    });
+}
+
+/** 今日一句（按日期轮换，手账风味） */
+function renderScienceDaily() {
+    const box = document.getElementById('sciDaily');
+    if (!box) return;
+    const notes = typeof SCIENCE_NOTES !== 'undefined' ? SCIENCE_NOTES : [];
+    if (!notes.length) { box.classList.add('hidden'); return; }
+    const n = notes[Math.floor(Date.now() / 86400000) % notes.length];
+    const t = (typeof SCIENCE_TOPICS !== 'undefined' && SCIENCE_TOPICS.find(x => x.key === n.topic)) || { emoji: '📌', name: '科普' };
+    box.innerHTML = `
+        <span class="sci-daily-tag">☀️ 今日一句</span>
+        <span class="sci-topic-chip">${t.emoji} ${esc(t.name)}</span>
+        <b class="sci-daily-title">${esc(n.title)}</b>
+        <p class="sci-daily-text">${esc(n.text)}</p>`;
+    box.classList.remove('hidden');
+}
+
+/** 主题筛选条（全部 + 10 主题 + 食物短句） */
+function renderScienceChips() {
+    const bar = document.getElementById('sciChips');
+    if (!bar) return;
+    const chips = [{ key: 'all', name: '📚 全部' }]
+        .concat(SCIENCE_TOPICS.map(t => ({ key: t.key, name: `${t.emoji} ${t.name}` })))
+        .concat([{ key: 'food', name: '📖 食物短句' }]);
+    bar.innerHTML = chips.map(c => `
+        <button class="cuisine-chip sci-chip ${scienceState.topic === c.key ? 'active' : ''}"
+                data-topic="${c.key}">${c.name}</button>`).join('');
+    bar.querySelectorAll('.sci-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            scienceState.topic = chip.dataset.topic;
+            renderScienceChips();
+            renderScienceGrid();
+        });
+    });
+}
+
+/** 相关食物 chips：食物短句直接挂本尊；专题按 keys 关键词匹配全库（最多 3 个） */
+function scienceFoodChips(item) {
+    if (item.food) return [{ id: item.food.id, emoji: item.food.emoji, name: item.food.name, suffix: ' 详情 →' }];
+    const out = [];
+    (item.keys || []).forEach(k => {
+        const f = [...FOODS, ...CUI_FOODS, ...CN_FOODS, ...BRAND_FOODS].find(x => x.name.includes(k));
+        if (f && out.length < 3 && !out.some(o => o.id === f.id)) out.push({ id: f.id, emoji: f.emoji, name: f.name, suffix: '' });
+    });
+    return out;
+}
+
+/** 科普网格 + 计数 + 空状态 */
+function renderScienceGrid() {
+    const grid = document.getElementById('sciGrid');
+    const empty = document.getElementById('sciEmpty');
+    if (!grid) return;
+    const list = getScienceFiltered();
+
+    grid.innerHTML = list.map(it => {
+        const t = it.topic === 'food'
+            ? { emoji: '📖', name: '食物短句' }
+            : (SCIENCE_TOPICS.find(x => x.key === it.topic) || { emoji: '📌', name: '科普' });
+        const chips = scienceFoodChips(it);
+        return `
+        <div class="sci-card${it.food ? ' sci-card-food' : ''}">
+            <div class="sci-card-head">
+                <span class="sci-topic-chip">${t.emoji} ${esc(t.name)}</span>
+                ${it.food ? '<span class="sci-src">来自库内餐品</span>' : ''}
+            </div>
+            <div class="sci-title">${esc(it.title)}</div>
+            <div class="sci-text">${esc(it.text)}</div>
+            ${chips.length ? `<div class="sci-foods">${chips.map(c => `<button class="sci-food-chip" data-food="${c.id}">${c.emoji} ${esc(c.name)}${c.suffix}</button>`).join('')}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    document.getElementById('sciCount').textContent = scienceState.keyword
+        ? `「${scienceState.keyword}」找到 ${list.length} 条`
+        : `科普条目 · 共 ${list.length} 条`;
+
+    if (!list.length) {
+        empty.classList.remove('hidden');
+        document.getElementById('sciEmptyText').textContent = scienceState.keyword
+            ? `没找到「${scienceState.keyword}」相关的科普，换个词试试？`
+            : '这个主题还没有条目，先逛逛别的主题？';
+    } else {
+        empty.classList.add('hidden');
+    }
+}
+
+/** 科普页事件：搜索 / 清空 / 关联食物 chip → 详情 */
+function bindScience() {
+    const input = document.getElementById('sciSearch');
+    const clear = document.getElementById('sciClear');
+    const refresh = () => {
+        scienceState.keyword = (input.value || '').trim();
+        if (clear) clear.classList.toggle('show', !!scienceState.keyword);
+        renderScienceGrid();
+    };
+    if (input) {
+        input.addEventListener('input', refresh);
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') refresh(); });
+    }
+    if (clear) clear.addEventListener('click', () => {
+        input.value = '';
+        refresh();
+        input.focus();
+    });
+
+    const grid = document.getElementById('sciGrid');
+    if (grid) grid.addEventListener('click', (e) => {
+        const chip = e.target && e.target.closest ? e.target.closest('[data-food]') : null;
+        if (!chip) return;
+        const f = getFood(Number(chip.dataset.food));
+        if (f) openFoodDetail(f);
+    });
+}
+
+/* ==========================================================
  * 模块十：拍照识别（真·视觉模型，OpenAI 兼容端点，key 仅存本机）
  * ----------------------------------------------------------
  *   📷 搜索框按钮 → 弹窗：填 endpoint/model/key（存 ys.v3.vision）
@@ -2550,6 +2690,10 @@ document.addEventListener('DOMContentLoaded', () => {
     renderRecipeGrid();      // 模块八：模板列表
     renderRecipePick();      // 模块八：低卡优选 Top8
     bindRecipe();            // 模块八：目标保存
+    renderScienceDaily();    // 模块九补强：今日一句
+    renderScienceChips();    // 模块九补强：主题筛选条
+    renderScienceGrid();     // 模块九补强：科普条目网格
+    bindScience();           // 模块九补强：搜索 / 清空 / 详情入口
     bindPhoto();             // 模块十：拍照识别（真·视觉模型）
     bindCalcActions();      // 模块二：计算器按钮
     renderCalculator();     // 模块二：购物车（含 localStorage 恢复）

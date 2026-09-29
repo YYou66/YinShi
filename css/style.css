@@ -706,6 +706,55 @@ main { flex: 1; padding: 40px 0 64px; }
 .photo-cfg-link:hover { color: var(--blue-deep); }
 .photo-foot .photo-disclaimer { font-size: 11.5px; color: var(--text-light); opacity: 0.85; }
 
+/* ===== 模块九补强：食品科普页 ===== */
+.sci-daily {
+    background: linear-gradient(135deg, #FFF9F2, #FFF4E8);
+    border: 1.5px solid var(--border);
+    border-left: 4px solid var(--accent-deep);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+.sci-daily-tag { font-size: 12px; font-weight: 800; color: var(--accent-deep); margin-right: 8px; }
+.sci-daily-title { display: inline-block; font-size: 15px; font-weight: 800; margin-top: 8px; }
+.sci-daily-text { font-size: 13.5px; line-height: 1.8; color: var(--text-light); margin: 6px 0 0; }
+
+.sci-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+}
+.sci-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 16px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.sci-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06); }
+.sci-card-food { border-left: 4px solid var(--blue); }
+.sci-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.sci-topic-chip {
+    font-size: 11.5px; font-weight: 700; padding: 3px 9px;
+    background: var(--blue-soft); color: var(--blue-deep); border-radius: 999px; white-space: nowrap;
+}
+.sci-src { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.sci-title { font-size: 15px; font-weight: 800; margin-bottom: 6px; }
+.sci-text { font-size: 13.5px; line-height: 1.8; color: var(--text-light); }
+.sci-foods { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.sci-food-chip {
+    font-size: 12px; font-weight: 700; padding: 4px 10px;
+    background: var(--blue-soft); color: var(--blue-deep);
+    border: 1.5px solid transparent; border-radius: 999px; cursor: pointer;
+    transition: all 0.18s ease;
+}
+.sci-food-chip:hover { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+@media (max-width: 560px) {
+    .sci-grid { grid-template-columns: 1fr; }
+}
+
 /* 卡片内的「查看详情」入口 */
 .food-card.clickable { cursor: pointer; }
 
