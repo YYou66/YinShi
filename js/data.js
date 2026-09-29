@@ -45,6 +45,11 @@ const BRANDS_LIB = [
     { key: 'cotti',      name: '库迪咖啡', emoji: '☕', type: '咖啡' },
     { key: 'burgerking', name: '汉堡王',   emoji: '🍔', type: '西式快餐' },
     { key: 'dominos',    name: '达美乐',   emoji: '🍕', type: '披萨快餐' },
+    { key: 'mcd',        name: '麦当劳',   emoji: '🍟', type: '西式快餐' },
+    { key: 'kfc',        name: '肯德基',   emoji: '🍗', type: '西式快餐' },
+    { key: 'starbucks',  name: '星巴克',   emoji: '☕', type: '咖啡 / 烘焙' },
+    { key: 'guming',     name: '古茗',     emoji: '🥤', type: '新式茶饮' },
+    { key: 'chagee',     name: '霸王茶姬', emoji: '🍵', type: '原叶鲜奶茶' },
 ];
 
 /* ---------- 运动消耗：动作库（MET 值 + 器械安全提示，模块七使用） ---------- */
