@@ -50,6 +50,9 @@ const BRANDS_LIB = [
     { key: 'starbucks',  name: '星巴克',   emoji: '☕', type: '咖啡 / 烘焙' },
     { key: 'guming',     name: '古茗',     emoji: '🥤', type: '新式茶饮' },
     { key: 'chagee',     name: '霸王茶姬', emoji: '🍵', type: '原叶鲜奶茶' },
+    { key: 'zui',        name: '醉得意',   emoji: '🥘', type: '中式正餐' },
+    { key: 'chabaidao',  name: '茶百道',   emoji: '🍹', type: '新式茶饮' },
+    { key: 'auntie',     name: '沪上阿姨', emoji: '🫖', type: '新式茶饮' },
 ];
 
 /* ---------- 运动消耗：动作库（MET 值 + 器械安全提示，模块七使用） ---------- */
