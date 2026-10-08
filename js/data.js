@@ -73,6 +73,11 @@ const BRANDS_LIB = [
     { key: 'greentea',   name: '绿茶餐厅', emoji: '🍞', type: '杭帮菜' },
     { key: 'lu',         name: '泸溪河',   emoji: '🥮', type: '中式糕点' },
     { key: 'haidilao',   name: '海底捞',   emoji: '🫕', type: '连锁火锅' },
+    { key: 'subway',     name: '赛百味',   emoji: '🥪', type: '三明治轻食' },
+    { key: 'yangguofu',  name: '杨国福麻辣烫', emoji: '🍜', type: '麻辣烫' },
+    { key: 'sam',        name: '山姆会员店', emoji: '🛒', type: '量贩超市合辑' },
+    { key: 'yoshinoya',  name: '吉野家',   emoji: '🍚', type: '日式牛肉饭' },
+    { key: 'zhengxin',   name: '正新鸡排', emoji: '🥩', type: '街边炸物' },
 ];
 
 /* ---------- 运动消耗：动作库（MET 值 + 器械安全提示，模块七使用） ---------- */
