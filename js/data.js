@@ -63,6 +63,11 @@ const BRANDS_LIB = [
     { key: 'yidiandian', name: '一点点',   emoji: '🫧', type: '经典茶饮' },
     { key: 'tastien',    name: '塔斯汀',   emoji: '🥙', type: '中国汉堡' },
     { key: 'wallace',    name: '华莱士',   emoji: '🐓', type: '西式快餐' },
+    { key: 'manner',     name: 'Manner 咖啡', emoji: '🫘', type: '平价精品咖啡' },
+    { key: 'laoxiangji', name: '老乡鸡',   emoji: '🍲', type: '中式快餐' },
+    { key: 'holiland',   name: '好利来',   emoji: '🧁', type: '烘焙甜品' },
+    { key: 'convenience', name: '便利店精选', emoji: '🏪', type: '便利店合辑' },
+    { key: 'xibei',      name: '西贝莜面村', emoji: '🌾', type: '西北风味' },
 ];
 
 /* ---------- 运动消耗：动作库（MET 值 + 器械安全提示，模块七使用） ---------- */
