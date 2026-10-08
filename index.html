@@ -226,6 +226,7 @@
                         <option value="low">热量 ↑ 低 → 高</option>
                     </select>
                 </div>
+                <button class="toolbar-btn" id="brandLow">🔥 只看 ≤300 kcal</button>
             </div>
 
             <!-- 卡片网格（JS 渲染） -->
@@ -361,7 +362,10 @@
             <!-- 主题筛选条（JS 渲染） -->
             <div class="cuisine-bar" id="sciChips"></div>
 
-            <div class="result-count" id="sciCount"></div>
+            <div class="toolbar">
+                <span class="result-count" id="sciCount"></span>
+                <button class="toolbar-btn" id="sciRandom">🎲 随机一条</button>
+            </div>
             <div class="sci-grid" id="sciGrid"></div>
 
             <!-- 空状态 -->

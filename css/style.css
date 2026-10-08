@@ -1318,6 +1318,7 @@ main { flex: 1; padding: 40px 0 64px; }
 }
 
 .toolbar-btn:hover { background: var(--blue-deep); color: #fff; transform: translateY(-1px); }
+.toolbar-btn.active { background: var(--blue-deep); color: #fff; border-color: var(--blue-deep); }
 
 /* ----- 右侧：汇总栏 ----- */
 .calc-summary {

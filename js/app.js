@@ -1562,14 +1562,15 @@ function bindCuisines() {
 /* ==========================================================
  * 模块六：品牌热量库（蜜雪冰城 / 喜茶 / 瑞幸 / 库迪 / 汉堡王 / 达美乐）
  * ========================================================== */
-const brandState = { brand: 'all', keyword: '', sort: 'default' };
+const brandState = { brand: 'all', keyword: '', sort: 'default', low: false };
 
 /** 品牌页可见餐品（品牌筛选 + 关键词 + 排序） */
 function getBrandFoods() {
     let list = (typeof BRAND_FOODS !== 'undefined' ? BRAND_FOODS : []).filter(f => {
         const okBrand = brandState.brand === 'all' || f.brand === brandState.brand;
         const okSearch = !brandState.keyword || f.name.includes(brandState.keyword);
-        return okBrand && okSearch;
+        const okLow = !brandState.low || f.cal <= 300;
+        return okBrand && okSearch && okLow;
     });
     if (brandState.sort === 'high') list = [...list].sort((a, b) => b.cal - a.cal);
     else if (brandState.sort === 'low') list = [...list].sort((a, b) => a.cal - b.cal);
@@ -1603,9 +1604,16 @@ function renderBrandGrid() {
     grid.innerHTML = list.map((f, i) => foodCardHTML(f, i)).join('');
 
     const b = brandState.brand !== 'all' ? BRANDS_LIB.find(x => x.key === brandState.brand) : null;
-    document.getElementById('brandCount').textContent = brandState.keyword
+    let countText = brandState.keyword
         ? `「${brandState.keyword}」找到 ${list.length} 款`
         : (b ? `${b.emoji} ${b.name} · ${list.length} 款` : `品牌热量库 · 共 ${list.length} 款`);
+    if (list.length) {
+        const cals = list.map(f => f.cal);
+        const min = Math.min(...cals), max = Math.max(...cals);
+        const avg = Math.round(cals.reduce((a, c) => a + c, 0) / cals.length);
+        countText += min === max ? ` · ${min} kcal` : ` · ${min}–${max}（均 ${avg}）kcal`;
+    }
+    document.getElementById('brandCount').textContent = countText;
 
     if (list.length === 0) {
         empty.classList.remove('hidden');
@@ -1635,6 +1643,12 @@ function bindBrands() {
     });
     document.getElementById('brandSort').addEventListener('change', (e) => {
         brandState.sort = e.target.value;
+        renderBrandGrid();
+    });
+    const lowBtn = document.getElementById('brandLow');
+    if (lowBtn) lowBtn.addEventListener('click', () => {
+        brandState.low = !brandState.low;
+        lowBtn.classList.toggle('active', brandState.low);
         renderBrandGrid();
     });
 }
@@ -2067,7 +2081,7 @@ function bindAboutActions() {
  *   🔬 新 Tab：今日一句 + 关键词搜索 + 10 主题 chips 筛选
  *   卡片内「关联食物」chip → 统一详情页；免责横幅在页面顶部
  * ========================================================== */
-const scienceState = { topic: 'all', keyword: '' };
+const scienceState = { topic: 'all', keyword: '', random: null };
 
 /** 汇总条目：SCIENCE_NOTES 专题 + 全库食物自带 science 字段（运行时收集） */
 function collectScienceItems() {
@@ -2118,6 +2132,7 @@ function renderScienceChips() {
     bar.querySelectorAll('.sci-chip').forEach(chip => {
         chip.addEventListener('click', () => {
             scienceState.topic = chip.dataset.topic;
+            scienceState.random = null;
             renderScienceChips();
             renderScienceGrid();
         });
@@ -2140,7 +2155,14 @@ function renderScienceGrid() {
     const grid = document.getElementById('sciGrid');
     const empty = document.getElementById('sciEmpty');
     if (!grid) return;
-    const list = getScienceFiltered();
+    let list = getScienceFiltered();
+    const total = list.length;
+    let randomMode = false;
+    if (scienceState.random) {
+        const hit = list.find(it => it.key === scienceState.random);
+        if (hit) { list = [hit]; randomMode = true; }
+        else scienceState.random = null; /* 筛选条件已不含该条，自动退出随机模式 */
+    }
 
     grid.innerHTML = list.map(it => {
         const t = it.topic === 'food'
@@ -2159,9 +2181,14 @@ function renderScienceGrid() {
         </div>`;
     }).join('');
 
-    document.getElementById('sciCount').textContent = scienceState.keyword
-        ? `「${scienceState.keyword}」找到 ${list.length} 条`
-        : `科普条目 · 共 ${list.length} 条`;
+    document.getElementById('sciCount').textContent = randomMode
+        ? `🎲 随机 1 / ${total} 条`
+        : (scienceState.keyword
+            ? `「${scienceState.keyword}」找到 ${total} 条`
+            : `科普条目 · 共 ${total} 条`);
+
+    const rnd = document.getElementById('sciRandom');
+    if (rnd) rnd.textContent = randomMode ? '↩️ 显示全部' : '🎲 随机一条';
 
     if (!list.length) {
         empty.classList.remove('hidden');
@@ -2179,6 +2206,7 @@ function bindScience() {
     const clear = document.getElementById('sciClear');
     const refresh = () => {
         scienceState.keyword = (input.value || '').trim();
+        scienceState.random = null;
         if (clear) clear.classList.toggle('show', !!scienceState.keyword);
         renderScienceGrid();
     };
@@ -2190,6 +2218,17 @@ function bindScience() {
         input.value = '';
         refresh();
         input.focus();
+    });
+
+    const rnd = document.getElementById('sciRandom');
+    if (rnd) rnd.addEventListener('click', () => {
+        if (scienceState.random) {
+            scienceState.random = null;
+        } else {
+            const l = getScienceFiltered();
+            if (l.length) scienceState.random = l[Math.floor(Math.random() * l.length)].key;
+        }
+        renderScienceGrid();
     });
 
     const grid = document.getElementById('sciGrid');
