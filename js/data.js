@@ -78,6 +78,11 @@ const BRANDS_LIB = [
     { key: 'sam',        name: '山姆会员店', emoji: '🛒', type: '量贩超市合辑' },
     { key: 'yoshinoya',  name: '吉野家',   emoji: '🍚', type: '日式牛肉饭' },
     { key: 'zhengxin',   name: '正新鸡排', emoji: '🥩', type: '街边炸物' },
+    { key: 'lanzhou',    name: '兰州牛肉面', emoji: '🐂', type: '清真面馆合辑' },
+    { key: 'dq',         name: 'DQ 冰淇淋', emoji: '🍨', type: '冰淇淋甜品' },
+    { key: 'ajisen',     name: '味千拉面', emoji: '🍥', type: '日式拉面' },
+    { key: 'taier',      name: '太二酸菜鱼', emoji: '🐟', type: '川味酸菜鱼' },
+    { key: 'hanshan',    name: '汉拿山',   emoji: '🔥', type: '韩式烤肉' },
 ];
 
 /* ---------- 运动消耗：动作库（MET 值 + 器械安全提示，模块七使用） ---------- */
