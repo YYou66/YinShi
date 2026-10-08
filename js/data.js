@@ -68,6 +68,11 @@ const BRANDS_LIB = [
     { key: 'holiland',   name: '好利来',   emoji: '🧁', type: '烘焙甜品' },
     { key: 'convenience', name: '便利店精选', emoji: '🏪', type: '便利店合辑' },
     { key: 'xibei',      name: '西贝莜面村', emoji: '🌾', type: '西北风味' },
+    { key: 'tims',       name: 'Tims 中国', emoji: '🥯', type: '咖啡贝果' },
+    { key: 'yuanji',     name: '袁记云饺', emoji: '🥟', type: '现包水饺' },
+    { key: 'greentea',   name: '绿茶餐厅', emoji: '🍞', type: '杭帮菜' },
+    { key: 'lu',         name: '泸溪河',   emoji: '🥮', type: '中式糕点' },
+    { key: 'haidilao',   name: '海底捞',   emoji: '🫕', type: '连锁火锅' },
 ];
 
 /* ---------- 运动消耗：动作库（MET 值 + 器械安全提示，模块七使用） ---------- */
