@@ -16,6 +16,7 @@ const LS_KEYS = {
     searchHistory: 'ys.v3.history',  // 搜索历史（模块二使用）
     settings: 'ys.v3.settings',      // 用户设置（体重 / 每日目标，后续模块使用）
     foodSource: 'ys.v3.foodSource',  // 食物库来源筛选（all / base / cui / cn / brand）
+    summaryRead: 'ys.v3.summaryRead', // 昨日总结已读标记 { 'YYYY-MM-DD': true }
 };
 
 /* ---------- 旧版 key 迁移：把 v1 数据无损搬到带版本号的新 key ---------- */
@@ -47,6 +48,7 @@ const state = {
     calcCart: loadLS(LS_KEYS.calcCart, []),     // 计算器购物车
     nutriFilter: [],                            // 营养素筛选（多选，AND 叠加）
     searchHistory: loadLS(LS_KEYS.searchHistory, []), // 搜索历史（最近在前）
+    recHistOpen: false,                         // 记录页历史区是否展开（默认折叠）
 };
 
 /* ==========================================================
@@ -1065,7 +1067,7 @@ function updateRecBadge() {
     badge.classList.toggle('hidden', total === 0);
 }
 
-/** 渲染整个记录页 */
+/** 渲染整个记录页：昨日总结 + 今日区（新一天从空白开始）+ 历史折叠区 */
 function renderRecords() {
     const groups = groupRecords();
     const empty = document.getElementById('recEmpty');
@@ -1082,8 +1084,27 @@ function renderRecords() {
 
     renderTodayStrip(groups);
     renderChart(groups);
-    document.getElementById('recList').innerHTML = groups.map(renderDayCard).join('');
+    renderYesterdayCard(groups);
+
+    /* 今日区（没有记录时给轻提示）+ 历史区（默认折叠，旧日期都收在这里） */
+    const today = currentDateKey();
+    const todayGroups = groups.filter(g => g.date === today);
+    const histGroups = groups.filter(g => g.date !== today);
+    let html = todayGroups.length
+        ? todayGroups.map(renderDayCard).join('')
+        : `<div class="rec-today-empty">🗒️ 今天还没记哦～去「食物库」点 ✎ 记一笔，或用计算器算好一餐再保存</div>`;
+    html += `
+        <div class="rec-history">
+            <button class="hist-toggle ${histGroups.length ? '' : 'empty'}" id="histToggle" ${histGroups.length ? '' : 'disabled'}>
+                📚 历史记录（${histGroups.length} 天）${state.recHistOpen ? '▲' : '▼'}
+            </button>
+            <div id="recHistoryWrap" class="${state.recHistOpen && histGroups.length ? '' : 'hidden'}">
+                ${histGroups.map(renderDayCard).join('')}
+            </div>
+        </div>`;
+    document.getElementById('recList').innerHTML = html;
     bindRecEvents(groups);
+    bindHistoryToggle();
     updateRecBadge();
 }
 
@@ -1099,6 +1120,146 @@ function renderTodayStrip(groups) {
     document.getElementById('todayNum').textContent = total;
     document.getElementById('todayLevel').textContent = label;
     document.getElementById('todayCount').textContent = `共 ${count} 条记录`;
+}
+
+/* ==========================================================
+ * 昨日总结：第二天自动归档昨日 + 生成总结卡
+ * ========================================================== */
+
+/** 聚合某一天的总结数据（总热量 / 目标对比 / 三餐分布 / 营养素 / Top 食物） */
+function buildDaySummary(g) {
+    const goal = loadRecipeTarget();
+    const total = Math.round(g.total);
+    const meals = g.meals.map(mg => ({
+        meal: mg.meal,
+        kcal: Math.round(mg.items.reduce((s, r) => s + recSub(r), 0)),
+        count: mg.items.length,
+    }));
+    /* 营养素合计（按食物库回查；食物下架则跳过该项） */
+    let p = 0, c = 0, f = 0, macroOk = true;
+    const top = [];
+    g.meals.forEach(mg => mg.items.forEach(r => {
+        const food = getFood(r.foodId);
+        const q = Number(r.qty);
+        if (!food || !(q > 0)) { macroOk = false; return; }
+        const mult = food.measure === 'weight' ? q / 100 : q;
+        p += food.p * mult; c += food.c * mult; f += food.f * mult;
+        top.push({ name: food.name, emoji: food.emoji, sub: recSub(r), meal: mg.meal });
+    }));
+    top.sort((a, b) => b.sub - a.sub);
+    return {
+        date: g.date, label: dateKeyToLabel(g.date), total, goal: goal.kcal,
+        diff: total - goal.kcal, meals,
+        p: Math.round(p), c: Math.round(c), f: Math.round(f), macroOk,
+        top: top.slice(0, 3),
+        count: meals.reduce((s, m) => s + m.count, 0),
+    };
+}
+
+/** 总结评语（规则化：超支 / 达标 / 缺口 + 餐次不均提醒） */
+function summaryComment(s) {
+    const msgs = [];
+    if (s.diff > 300) {
+        const mins = Math.max(10, Math.round(s.diff / 8));   // 约 60kg 慢跑 8 kcal/分钟
+        msgs.push(`超出目标 ${s.diff} kcal，约需慢跑 ${mins} 分钟才能消耗掉`);
+        msgs.push('今天清淡一点就能追回来');
+    } else if (s.diff >= -100) {
+        msgs.push(`与目标基本持平（${s.diff > 0 ? '+' : ''}${s.diff} kcal），节奏很棒，继续保持`);
+    } else if (s.diff >= -500) {
+        msgs.push(`留了 ${-s.diff} kcal 的小缺口，今天正常吃就好`);
+    } else {
+        msgs.push(`缺口 ${-s.diff} kcal 有点大，今天好好吃饭，别饿过头`);
+    }
+    const big = s.meals.filter(m => m.meal !== '加餐').sort((a, b) => b.kcal - a.kcal)[0];
+    if (big && s.total > 0 && big.kcal / s.total > 0.55) {
+        msgs.push(`${big.meal}占了全天 ${Math.round(big.kcal / s.total * 100)}%，试试把热量匀一点到其他餐`);
+    }
+    return msgs.join('；') + '。';
+}
+
+/** 昨日总结卡（有昨日记录且未点「知道了」时显示） */
+function renderYesterdayCard(groups) {
+    const box = document.getElementById('yesterdayCard');
+    if (!box) return;
+    const yd = new Date();
+    yd.setDate(yd.getDate() - 1);
+    const ydKey = dateKeyOf(yd);
+    const g = groups.find(x => x.date === ydKey);
+    const read = loadLS(LS_KEYS.summaryRead, {});
+    if (!g || read[ydKey]) { box.innerHTML = ''; box.classList.add('hidden'); return; }
+
+    const s = buildDaySummary(g);
+    const diffPct = Math.round(Math.abs(s.diff) / s.goal * 100);
+    let badge, badgeClass;
+    if (s.diff > 300)          { badge = `🔴 超出目标 ${s.diff} kcal（${diffPct}%）`; badgeClass = 'y-high'; }
+    else if (s.diff >= -100)   { badge = `🟢 基本达标（${s.diff > 0 ? '+' + s.diff : s.diff} kcal）`; badgeClass = 'y-ok'; }
+    else if (s.diff >= -500)   { badge = `🟡 留有缺口 ${-s.diff} kcal`; badgeClass = 'y-mid'; }
+    else                       { badge = `🟠 缺口较大 ${-s.diff} kcal`; badgeClass = 'y-mid'; }
+
+    const mealRows = s.meals.map(m => {
+        const pct = s.total > 0 ? Math.round(m.kcal / s.total * 100) : 0;
+        return `
+            <div class="y-meal-row">
+                <span class="y-meal-name">${MEAL_EMOJI[m.meal] || '🍽'} ${m.meal}</span>
+                <div class="y-meal-bar"><i style="width:${pct}%"></i></div>
+                <span class="y-meal-kcal">${m.kcal} <small>kcal</small> · ${pct}%</span>
+            </div>`;
+    }).join('');
+
+    box.classList.remove('hidden');
+    box.innerHTML = `
+        <div class="y-card ${badgeClass}">
+            <div class="y-head">
+                <span class="y-title">📋 昨日总结</span>
+                <span class="y-date">${s.label} · ${s.date} · ${s.count} 条记录</span>
+            </div>
+            <div class="y-total-row">
+                <div class="y-total"><b>${s.total}</b><span>kcal</span><em>目标 ${s.goal} kcal</em></div>
+                <span class="y-badge">${badge}</span>
+            </div>
+            <div class="y-meals">${mealRows}</div>
+            ${s.macroOk ? `
+            <div class="y-macros">
+                <span>🥩 蛋白 <b>${s.p}g</b></span>
+                <span>🍚 碳水 <b>${s.c}g</b></span>
+                <span>🧈 脂肪 <b>${s.f}g</b></span>
+            </div>` : ''}
+            ${s.top.length ? `
+            <div class="y-top">
+                <span class="y-top-label">🔥 热量 Top ${s.top.length}</span>
+                ${s.top.map(t => `<span class="y-top-item">${t.emoji} ${esc(t.name)} <b>${t.sub}</b></span>`).join('')}
+            </div>` : ''}
+            <p class="y-comment">💡 ${esc(summaryComment(s))}</p>
+            <div class="y-actions">
+                <button class="toolbar-btn" id="yExpandHist">📂 查看历史记录</button>
+                <button class="toolbar-btn active" id="yDismiss">👍 知道了</button>
+            </div>
+        </div>`;
+
+    document.getElementById('yDismiss').addEventListener('click', () => {
+        const map = loadLS(LS_KEYS.summaryRead, {});
+        map[ydKey] = true;
+        saveLS(LS_KEYS.summaryRead, map);
+        box.innerHTML = '';
+        box.classList.add('hidden');
+        showToast('📋 昨日总结已收起（历史记录里随时可回看）');
+    });
+    document.getElementById('yExpandHist').addEventListener('click', () => {
+        state.recHistOpen = true;
+        renderRecords();
+        const hist = document.getElementById('recHistoryWrap');
+        if (hist) hist.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+}
+
+/** 历史区折叠开关 */
+function bindHistoryToggle() {
+    const tgl = document.getElementById('histToggle');
+    if (!tgl) return;
+    tgl.addEventListener('click', () => {
+        state.recHistOpen = !state.recHistOpen;
+        renderRecords();
+    });
 }
 
 /** 近 7 天柱状图（纯 CSS） */
