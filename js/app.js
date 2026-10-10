@@ -221,6 +221,55 @@ function getVisibleFoods() {
     return list;
 }
 
+/* ==========================================================
+ * 搜索联想：关键词相关食物推荐（结果条 + 空结果兜底）
+ * ========================================================== */
+
+/**
+ * 按关键词给全库打分，返回最相关的若干食物（排除已命中的结果）
+ * 打分：名称包含关键词 +12 / 标签包含 +8 / 与结果同分类 +2 / 字符重叠 +1
+ */
+function getRelatedFoods(kw, excludeIds, limit, resultList) {
+    if (!kw) return [];
+    const ex = new Set(excludeIds || []);
+    const chars = [...new Set(kw)];
+    const cats = new Set((resultList || []).map(f => f.category));
+    const all = [].concat(
+        FOODS,
+        typeof CUI_FOODS !== 'undefined' ? CUI_FOODS : [],
+        typeof CN_FOODS !== 'undefined' ? CN_FOODS : [],
+        typeof BRAND_FOODS !== 'undefined' ? BRAND_FOODS : [],
+    );
+    const scored = [];
+    all.forEach(f => {
+        if (ex.has(f.id)) return;
+        let s = 0;
+        if (f.name.includes(kw)) s += 12;
+        else chars.forEach(ch => { if (f.name.includes(ch)) s += 1; });
+        if ((f.tags || []).some(t => t.includes(kw))) s += 8;
+        if (cats.size && cats.has(f.category)) s += 2;
+        if (s > 0) scored.push({ f, s });
+    });
+    scored.sort((a, b) => b.s - a.s || a.f.id - b.f.id);
+    return scored.slice(0, limit || 8).map(x => x.f);
+}
+
+/** 渲染相关食物联想条（无关键词或无联想时隐藏） */
+function renderRelatedBar(list) {
+    const bar = document.getElementById('relatedBar');
+    if (!bar) return;
+    let rel = [];
+    if (state.keyword) rel = getRelatedFoods(state.keyword, list.map(f => f.id), 8, list);
+    if (rel.length === 0) {
+        bar.innerHTML = '';
+        bar.classList.add('hidden');
+        return;
+    }
+    bar.classList.remove('hidden');
+    bar.innerHTML = `<span class="related-title">💡 相关食物</span>` +
+        rel.map(f => `<button class="related-chip" data-rel="${f.id}">${f.emoji} ${esc(f.name)} <b>${f.cal}</b></button>`).join('');
+}
+
 /** 单张卡片 HTML（食物库 / 菜系 / 品牌通用；品牌餐品显示品牌徽章） */
 function foodCardHTML(food, index) {
     const cat = CATEGORIES.find(c => c.key === food.category);
@@ -316,6 +365,9 @@ function renderFoodGrid() {
     } else {
         empty.classList.add('hidden');
     }
+
+    // 搜索关键词 → 相关食物联想条
+    renderRelatedBar(list);
 }
 
     /** 卡片网格事件：委托到容器（渲染任意网格后无需重绑，避免食物页/菜系页重复监听） */
@@ -352,6 +404,13 @@ function bindGridActions() {
                 openFoodDetail(getFood(Number(card.dataset.id)));
             }
         });
+    });
+
+    /* 相关食物联想条：点 chip 打开统一详情 */
+    const rb = document.getElementById('relatedBar');
+    if (rb) rb.addEventListener('click', (e) => {
+        const chip = e.target.closest('.related-chip');
+        if (chip) openFoodDetail(getFood(Number(chip.dataset.rel)));
     });
 }
 
