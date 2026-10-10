@@ -2333,6 +2333,15 @@ function openPhotoModal() {
 }
 
 function closePhotoModal() {
+    /* 关窗兜底：表单三项齐全就自动保存，避免「贴了没点保存」下次重贴 */
+    const cfg = readVisionCfgForm();
+    if (cfg.endpoint && cfg.model && cfg.key) {
+        const saved = loadVisionCfg();
+        if (cfg.key !== saved.key || cfg.endpoint !== saved.endpoint || cfg.model !== saved.model || cfg.preset !== saved.preset) {
+            saveVisionCfg(cfg);
+            showToast('⚙️ 接入设置已自动保存（仅存本机浏览器）');
+        }
+    }
     document.getElementById('photoModal').classList.remove('show');
 }
 
@@ -2401,7 +2410,10 @@ async function testVisionConnection() {
         });
         const text = await resp.text();
         if (resp.ok) {
-            showToast(`✅ 连接成功 · ${cfg.model}`);
+            saveVisionCfg(cfg);           // 测试通过即落盘，避免「测完没存、下次又贴」
+            photoState.cfgOpen = false;
+            renderPhotoView();
+            showToast(`✅ 连接成功 · ${cfg.model} · 设置已保存，可直接拍照`);
         } else {
             showToast(`❌ 连接失败 HTTP ${resp.status}：${visionErrText(resp.status, text)}`);
         }
@@ -2427,12 +2439,19 @@ function visionErrText(status, text) {
 /** 主流程：识别 */
 async function runPhotoRecognize() {
     if (photoState.busy) return;
-    const cfg = loadVisionCfg();
+    let cfg = loadVisionCfg();
     if (!cfg.key || !cfg.endpoint || !cfg.model) {
-        photoState.cfgOpen = true;
-        renderPhotoView();
-        showToast('请先完成接入设置（填 API Key）');
-        return;
+        /* 表单已填完整但没保存 → 自动落盘后直接开拍，免得再贴一次 */
+        const form = readVisionCfgForm();
+        if (form.endpoint && form.model && form.key) {
+            saveVisionCfg(form);
+            cfg = loadVisionCfg();
+        } else {
+            photoState.cfgOpen = true;
+            renderPhotoView();
+            showToast('请先完成接入设置（填 API Key）');
+            return;
+        }
     }
     if (!photoState.img) { showToast('先拍一张或选一张图片 📷'); return; }
 
