@@ -2154,3 +2154,79 @@ main { flex: 1; padding: 40px 0 64px; }
     .about-grid { grid-template-columns: 1fr; }
     .disclaimer { flex-direction: column; gap: 10px; }
 }
+
+/* ==========================================================
+ * 移动端精简（≤640px）：紧凑排版 · 筛选横滚 · 弹窗贴边
+ * ========================================================== */
+@media (max-width: 640px) {
+    .container { padding: 0 14px; }
+    main { padding: 18px 0 36px; }
+
+    /* 页头压缩 */
+    .page-head { margin-bottom: 14px; }
+    .page-head h2 { font-size: 20px; letter-spacing: 0.04em; margin-bottom: 2px; }
+    .page-head p { font-size: 12.5px; }
+
+    /* Tab 导航紧凑（9 个 Tab 尽量两行内放完） */
+    .tab-nav { gap: 4px; }
+    .tab-btn { padding: 6px 11px; font-size: 12px; letter-spacing: 0; }
+
+    /* 搜索框（16px 防 iOS 聚焦自动缩放） */
+    .search-wrap { margin-bottom: 12px; }
+    .search-box input { font-size: 16px; }
+
+    /* 筛选 chips 全部改横向滚动——不再层层堆叠占半屏 */
+    .filter-tags, .nutri-tags, .cuisine-bar, .source-group {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .filter-tags::-webkit-scrollbar, .nutri-tags::-webkit-scrollbar,
+    .cuisine-bar::-webkit-scrollbar, .source-group::-webkit-scrollbar { display: none; }
+    .filter-tag, .nutri-tag, .cuisine-chip, .source-group .toolbar-btn { flex-shrink: 0; }
+    .filter-tags { gap: 7px; margin-bottom: 12px; }
+    .filter-tag { padding: 5px 12px; font-size: 12.5px; }
+    .nutri-filter { flex-wrap: nowrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .nutri-title { font-size: 11px; padding: 4px 0; }
+    .nutri-tags { gap: 6px; }
+    .nutri-tag { padding: 5px 11px; font-size: 11.5px; }
+    .cuisine-bar { gap: 7px; margin-bottom: 12px; }
+    .cuisine-chip { padding: 6px 12px; font-size: 12.5px; }
+
+    /* 工具栏紧凑（来源筛选 / 排序 / 计数） */
+    .toolbar { gap: 10px; margin-bottom: 14px; }
+    .result-count { font-size: 12px; }
+    .sort-group label { font-size: 12px; }
+    .sort-group select { font-size: 12.5px; padding: 4px 8px; }
+
+    /* 卡片网格更紧凑 */
+    .food-grid { gap: 12px; }
+    .card-body { padding: 6px 12px 12px; }
+    .food-name { font-size: 15px; margin-bottom: 4px; }
+    .cal-num { font-size: 26px; }
+    .cal-row { margin-bottom: 8px; }
+    .macro-row { gap: 8px; }
+    .tags-row { gap: 5px; margin-bottom: 8px; }
+    .note-block { padding: 8px 10px; font-size: 12px; margin-bottom: 8px; }
+    .card-actions { gap: 8px; }
+
+    /* 相关食物联想条 */
+    .related-bar { padding: 10px 12px; margin: 10px 0 2px; }
+
+    /* 弹窗：贴边大屏 + 内部滚动（详情/拍照/记一笔/编辑共用） */
+    .modal {
+        max-width: none;
+        width: calc(100vw - 24px);
+        max-height: calc(100vh - 40px);
+        max-height: calc(100dvh - 40px);
+        overflow-y: auto;
+        border-radius: 16px;
+        padding: 18px 16px;
+    }
+    .modal-wide { max-width: none; }
+    .modal h3 { font-size: 16px; margin-bottom: 12px; }
+
+    /* 页脚 */
+    .site-footer { padding: 14px 0; }
+}
