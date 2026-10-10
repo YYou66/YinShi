@@ -15,6 +15,7 @@ const LS_KEYS = {
     records: 'ys.v3.records',        // 饮食记录（模块三使用）
     searchHistory: 'ys.v3.history',  // 搜索历史（模块二使用）
     settings: 'ys.v3.settings',      // 用户设置（体重 / 每日目标，后续模块使用）
+    foodSource: 'ys.v3.foodSource',  // 食物库来源筛选（all / base / cui / cn / brand）
 };
 
 /* ---------- 旧版 key 迁移：把 v1 数据无损搬到带版本号的新 key ---------- */
@@ -41,6 +42,7 @@ const state = {
     filter: 'all',       // 当前筛选分类
     keyword: '',         // 搜索关键字
     sort: 'default',     // 排序：default / high / low
+    source: loadLS(LS_KEYS.foodSource, 'all'),   // 食物库来源：all / base / cui / cn / brand
     favorites: loadLS(LS_KEYS.favorites, []),   // 收藏 id 数组
     calcCart: loadLS(LS_KEYS.calcCart, []),     // 计算器购物车
     nutriFilter: [],                            // 营养素筛选（多选，AND 叠加）
@@ -200,12 +202,56 @@ function activeNutriNames() {
 }
 
 /* ==========================================================
+ * 渲染：来源筛选（食物库全库化：基础 100 / 菜系 / 省区 / 品牌）
+ * ========================================================== */
+const SOURCE_META = [
+    { key: 'all',   name: '全部',     emoji: '📚' },
+    { key: 'base',  name: '基础',     emoji: '🍚' },
+    { key: 'cui',   name: '八大菜系', emoji: '🏮' },
+    { key: 'cn',    name: '全国省区', emoji: '🗾' },
+    { key: 'brand', name: '品牌',     emoji: '🏪' },
+];
+
+/** 按来源取食物池（all = 四库合并，全库唯一 id） */
+function sourcePool(key) {
+    const k = key || state.source;
+    if (k === 'base') return FOODS;
+    if (k === 'cui') return typeof CUI_FOODS !== 'undefined' ? CUI_FOODS : [];
+    if (k === 'cn') return typeof CN_FOODS !== 'undefined' ? CN_FOODS : [];
+    if (k === 'brand') return typeof BRAND_FOODS !== 'undefined' ? BRAND_FOODS : [];
+    return [].concat(
+        FOODS,
+        typeof CUI_FOODS !== 'undefined' ? CUI_FOODS : [],
+        typeof CN_FOODS !== 'undefined' ? CN_FOODS : [],
+        typeof BRAND_FOODS !== 'undefined' ? BRAND_FOODS : [],
+    );
+}
+
+function renderSourceGroup() {
+    const box = document.getElementById('sourceGroup');
+    if (!box) return;
+    box.innerHTML = SOURCE_META.map(s => `
+        <button class="toolbar-btn ${state.source === s.key ? 'active' : ''}" data-src="${s.key}">
+            ${s.emoji} ${s.name} <b>${sourcePool(s.key).length}</b>
+        </button>
+    `).join('');
+    box.querySelectorAll('.toolbar-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.source = btn.dataset.src;
+            saveLS(LS_KEYS.foodSource, state.source);
+            renderSourceGroup();
+            renderFoodGrid();
+        });
+    });
+}
+
+/* ==========================================================
  * 渲染：食物卡片
  * ========================================================== */
 
-/** 按 搜索 + 筛选 + 排序 取可见食物 */
+/** 按 搜索 + 筛选 + 排序 取可见食物（来源池 → 分类/关键词/营养素过滤） */
 function getVisibleFoods() {
-    let list = FOODS.filter(f => {
+    let list = sourcePool().filter(f => {
         const okFilter = state.filter === 'all' || f.category === state.filter;
         const okSearch = !state.keyword || f.name.includes(state.keyword);
         const okNutri = state.nutriFilter.every(gid => {
@@ -344,15 +390,18 @@ function renderFoodGrid() {
 
     // 结果计数
     const countEl = document.getElementById('resultCount');
-    const total = getVisibleFoods().length;
+    const total = list.length;
     const activeCat = CATEGORIES.find(c => c.key === state.filter);
+    const srcMeta = SOURCE_META.find(s => s.key === state.source);
     countEl.textContent = state.keyword
         ? `「${state.keyword}」找到 ${total} 款`
         : (state.nutriFilter.length
             ? `${activeNutriNames().join(' + ')} · ${total} 款`
             : (state.filter !== 'all' && activeCat
                 ? `${activeCat.emoji} ${activeCat.name} · ${total} 款`
-                : `共 ${total} 款食物`));
+                : (state.source !== 'all' && srcMeta
+                    ? `${srcMeta.emoji} ${srcMeta.name} · 共 ${total} 款`
+                    : `共 ${total} 款食物`)));
 
     // 空状态
     if (list.length === 0) {
@@ -2781,6 +2830,7 @@ document.addEventListener('DOMContentLoaded', () => {
     migrateLegacyLS();      // 旧数据无损迁移到带版本号的 key
     bindTabs();
     renderFilterTags();
+    renderSourceGroup();   // 食物库来源筛选（全库化）
     renderNutriTags();
     renderFoodGrid();
     renderCuisineMode();     // 模块五：八大菜系 / 全国风味 模式切换

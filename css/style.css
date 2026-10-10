@@ -416,6 +416,33 @@ main { flex: 1; padding: 40px 0 64px; }
 }
 
 /* ==========================================================
+ * 食物库：来源筛选组（全库化）
+ * ========================================================== */
+.toolbar {
+    flex-wrap: wrap;
+}
+
+.source-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.source-group .toolbar-btn b {
+    font-weight: 800;
+    color: var(--accent-deep);
+}
+
+.source-group .toolbar-btn.active b { color: #fff; }
+
+@media (max-width: 640px) {
+    .toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .source-group { width: 100%; }
+    .source-group .toolbar-btn { flex: 1 1 auto; justify-content: center; }
+    .sort-group { justify-content: flex-end; }
+}
+
+/* ==========================================================
  * 八大菜系页：菜系筛选条 + 菜系小百科
  * ========================================================== */
 .cuisine-search { margin-bottom: 16px; }
