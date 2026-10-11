@@ -776,6 +776,15 @@ main { flex: 1; padding: 40px 0 64px; }
 }
 .photo-cfg-link:hover { color: var(--blue-deep); }
 .photo-foot .photo-disclaimer { font-size: 11.5px; color: var(--text-light); opacity: 0.85; }
+.photo-mode {
+  font-size: 11.5px;
+  color: var(--accent-deep);
+  background: var(--bg-soft, rgba(224, 160, 119, 0.12));
+  border: 1px solid rgba(224, 160, 119, 0.35);
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
 
 /* ===== 模块九补强：食品科普页 ===== */
 .sci-daily {

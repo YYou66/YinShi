@@ -2548,6 +2548,17 @@ const VISION_SYS_PROMPT =
 
 const photoState = { cfgOpen: false, busy: false, img: null, result: null };
 
+const VISION_PROXY = 'api/vision';   // 站点云端中转（服务端函数，key 在 Vercel 后台环境变量）
+
+/** 本机直连就绪：key + 端点 + 模型三项齐全 */
+function visionDirectReady() {
+    const cfg = loadVisionCfg();
+    return !!(cfg.key && cfg.endpoint && cfg.model);
+}
+
+/** 可否开拍：本机直连 或 站点云端（默认；请求失败会在结果卡里给出原因） */
+function canUseVision() { return true; }
+
 /** 读取视觉接入配置（默认智谱预设，key 空） */
 function loadVisionCfg() {
     const saved = loadLS(LS_VISION, {});
@@ -2560,15 +2571,15 @@ function loadVisionCfg() {
 }
 function saveVisionCfg(cfg) { saveLS(LS_VISION, cfg); }
 
-/** 配置表单 ↔ 视图切换（无 key 显示设置区，有 key 显示拍照区） */
+/** 配置表单 ↔ 视图切换（默认进拍照区=云端免配置；点「⚙️ 接入设置」才显示设置区） */
 function renderPhotoView() {
-    const cfg = loadVisionCfg();
-    const has = !!(cfg.key && cfg.endpoint && cfg.model);
-    const showCfg = !has || photoState.cfgOpen;
+    const showCfg = !canUseVision() || photoState.cfgOpen;
     const c = document.getElementById('photoConfig');
     const s = document.getElementById('photoShoot');
     if (c) c.classList.toggle('hidden', !showCfg);
     if (s) s.classList.toggle('hidden', showCfg);
+    const badge = document.getElementById('photoModeBadge');
+    if (badge) badge.textContent = visionDirectReady() ? '🔑 本机 Key 直连' : '☁️ 云端识别 · 免配置';
 }
 
 /** 把已存配置填进设置表单 */
@@ -2580,7 +2591,7 @@ function renderPhotoCfgForm() {
     set('photoModel', cfg.model);
     set('photoKey', cfg.key);
     const hint = document.getElementById('photoCfgHint');
-    if (hint) hint.textContent = (VISION_PRESETS[cfg.preset] || VISION_PRESETS.custom).hint;
+    if (hint) hint.textContent = '☁️ 站点已内置云端识别，全部留空即可直接拍照；填入自己的 Key 可改走本机直连。' + (VISION_PRESETS[cfg.preset] || VISION_PRESETS.custom).hint;
 }
 
 /** 从表单读配置 */
@@ -2595,7 +2606,7 @@ function readVisionCfgForm() {
 }
 
 function openPhotoModal() {
-    photoState.cfgOpen = !loadVisionCfg().key;
+    photoState.cfgOpen = false;   // 云端模式默认直进拍照区；设置区由「⚙️ 接入设置」进入
     renderPhotoCfgForm();
     renderPhotoView();
     document.getElementById('photoModal').classList.add('show');
@@ -2658,11 +2669,36 @@ function resetPhotoShot() {
     document.getElementById('photoResult').innerHTML = '';
 }
 
-/** 测试连接：最小文本请求验证 endpoint + key + model */
+/** 测试连接：表单齐全 → 直连测试；表单全空 → 测站点云端中转 */
 async function testVisionConnection() {
     const cfg = readVisionCfgForm();
+    if (!cfg.endpoint && !cfg.model && !cfg.key) {
+        /* 全空 → 测云端 */
+        const btn = document.getElementById('photoTest');
+        btn.disabled = true;
+        try {
+            const resp = await fetch(VISION_PROXY, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ test: true }),
+            });
+            const text = await resp.text();
+            if (resp.ok) {
+                photoState.cfgOpen = false;
+                renderPhotoView();
+                showToast('✅ 云端识别可用 · 无需配置，可直接拍照');
+            } else {
+                showToast(`❌ 云端不可用：${visionErrText(resp.status, text)}`);
+            }
+        } catch (e) {
+            showToast('❌ 云端请求失败：' + (e && e.message ? e.message : e));
+        } finally {
+            btn.disabled = false;
+        }
+        return;
+    }
     if (!cfg.endpoint || !cfg.model || !cfg.key) {
-        showToast('接口地址 / 模型名 / API Key 都要填');
+        showToast('接口地址 / 模型名 / API Key 都要填（或全部留空使用云端识别）');
         return;
     }
     const btn = document.getElementById('photoTest');
@@ -2705,23 +2741,19 @@ function visionErrText(status, text) {
     return String(msg).slice(0, 160);
 }
 
-/** 主流程：识别 */
+/** 主流程：识别（本机有 key → 直连；否则 → 站点云端中转，访客免配置） */
 async function runPhotoRecognize() {
     if (photoState.busy) return;
     let cfg = loadVisionCfg();
-    if (!cfg.key || !cfg.endpoint || !cfg.model) {
-        /* 表单已填完整但没保存 → 自动落盘后直接开拍，免得再贴一次 */
+    if (!visionDirectReady()) {
+        /* 表单已填完整但没保存 → 自动落盘后直连开拍，免得再贴一次（老链路保留） */
         const form = readVisionCfgForm();
         if (form.endpoint && form.model && form.key) {
             saveVisionCfg(form);
             cfg = loadVisionCfg();
-        } else {
-            photoState.cfgOpen = true;
-            renderPhotoView();
-            showToast('请先完成接入设置（填 API Key）');
-            return;
         }
     }
+    const useProxy = !visionDirectReady();
     if (!photoState.img) { showToast('先拍一张或选一张图片 📷'); return; }
 
     photoState.busy = true;
@@ -2732,10 +2764,11 @@ async function runPhotoRecognize() {
 
     let resp = null;
     try {
-        resp = await fetch(cfg.endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.key },
-            body: JSON.stringify({
+        const headers = { 'Content-Type': 'application/json' };
+        if (!useProxy) headers['Authorization'] = 'Bearer ' + cfg.key;
+        const body = useProxy
+            ? { system: VISION_SYS_PROMPT, image: photoState.img }
+            : {
                 model: cfg.model,
                 temperature: 0.2,
                 max_tokens: 1500,
@@ -2748,10 +2781,14 @@ async function runPhotoRecognize() {
                         ],
                     },
                 ],
-            }),
+            };
+        resp = await fetch(useProxy ? VISION_PROXY : cfg.endpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
         });
     } catch (e) {
-        renderPhotoCard(null, '', '❌ 网络或跨域失败：' + (e && e.message ? e.message : e) + '（检查网络 / 接口地址；浏览器需允许跨域）');
+        renderPhotoCard(null, '', '❌ ' + (useProxy ? '云端请求失败' : '网络或跨域失败') + '：' + (e && e.message ? e.message : e) + (useProxy ? '（检查网络后重试）' : '（检查网络 / 接口地址；浏览器需允许跨域）'));
         photoState.busy = false;
         go.disabled = false;
         document.getElementById('photoLoading').classList.add('hidden');
@@ -2970,6 +3007,11 @@ function bindPhoto() {
         showToast('✅ 接入设置已保存（仅存本机浏览器）');
     });
     document.getElementById('photoTest').addEventListener('click', testVisionConnection);
+    const backBtn = document.getElementById('photoBack');
+    if (backBtn) backBtn.addEventListener('click', () => {
+        photoState.cfgOpen = false;
+        renderPhotoView();
+    });
 
     /* 拍照区 */
     document.getElementById('photoConfigBtn').addEventListener('click', () => {

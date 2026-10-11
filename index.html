@@ -551,9 +551,9 @@
             <button class="modal-x" id="photoClose" aria-label="关闭">✕</button>
             <h3>📷 拍照识别</h3>
 
-            <!-- 接入设置（未配置 key 时默认展示） -->
+            <!-- 接入设置（高级选项；默认走云端，点「⚙️ 接入设置」才显示） -->
             <div id="photoConfig">
-                <p class="photo-intro">接入视觉模型识别照片里的食物热量。<b>API Key 只保存在你自己的浏览器</b>（localStorage），不会写进代码仓库、也不会经过本站服务器。</p>
+                <p class="photo-intro">📷 <b>云端识别已内置，无需任何配置，直接拍照即可。</b>识别请求经本站服务器中转（key 存在服务器环境变量，不进代码仓库、不出现在页面）。在下面填入自己的 API Key 可改为本机直连（请求不经本站服务器）。</p>
                 <div class="modal-row">
                     <label for="photoPreset">服务商</label>
                     <select id="photoPreset">
@@ -577,6 +577,7 @@
                 </div>
                 <p class="photo-hint" id="photoCfgHint"></p>
                 <div class="modal-actions">
+                    <button class="modal-btn-cancel" id="photoBack" type="button">↩ 返回拍照</button>
                     <button class="modal-btn-cancel" id="photoTest">🔌 测试连接</button>
                     <button class="modal-btn-ok" id="photoSave">💾 保存设置</button>
                 </div>
@@ -599,6 +600,7 @@
                 </div>
                 <div id="photoResult"></div>
                 <div class="photo-foot">
+                    <span class="photo-mode" id="photoModeBadge">☁️ 云端识别 · 免配置</span>
                     <button class="photo-cfg-link" id="photoConfigBtn" type="button">⚙️ 接入设置</button>
                     <span class="photo-disclaimer">识别结果仅供参考 · 以包装 / 实际称重为准</span>
                 </div>
