@@ -83,6 +83,11 @@ const BRANDS_LIB = [
     { key: 'ajisen',     name: '味千拉面', emoji: '🍥', type: '日式拉面' },
     { key: 'taier',      name: '太二酸菜鱼', emoji: '🐟', type: '川味酸菜鱼' },
     { key: 'hanshan',    name: '汉拿山',   emoji: '🔥', type: '韩式烤肉' },
+    { key: 'zhouheiya',  name: '周黑鸭',   emoji: '🦆', type: '卤味鸭脖' },
+    { key: 'breakfast',  name: '中式早餐铺', emoji: '🍳', type: '早餐包子铺合辑' },
+    { key: 'xianyu',     name: '鲜芋仙',   emoji: '🍠', type: '芋圆糖水甜品' },
+    { key: 'wagas',      name: 'Wagas',    emoji: '🥗', type: '轻食西简餐' },
+    { key: 'bantianyao', name: '半天妖烤鱼', emoji: '🌶️', type: '青花椒烤鱼' },
 ];
 
 /* ---------- 运动消耗：动作库（MET 值 + 器械安全提示，模块七使用） ---------- */
