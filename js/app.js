@@ -2679,7 +2679,7 @@ function resetPhotoShot() {
 }
 
 /* ---------- 应用内取景框（getUserMedia 实时预览；不可用时退回原生相机） ---------- */
-const camState = { stream: null, torch: false };
+const camState = { stream: null, torch: false, zoom: 1 };
 
 /** 识别 App 内置浏览器（微信/抖音等常屏蔽网页相机）——返回名称或空串 */
 function inAppBrowser() {
@@ -2704,7 +2704,22 @@ async function openCamViewfinder() {
         document.getElementById('photoCam').click(); return;
     }
     try {
-        const stream = await md.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+        /* 请求与屏幕比例匹配的竖屏高清流：满屏 cover 时裁切最小（≈系统相机视野）；
+         * 之前无约束时浏览器常给横屏低清流，cover 在长屏手机上会裁掉大半宽度 = 看着像放大且发虚 */
+        const portrait = window.innerHeight >= window.innerWidth;
+        const aspectIdeal = (window.innerWidth && window.innerHeight)
+            ? (window.innerWidth / window.innerHeight)
+            : (portrait ? 0.5625 : 1.7778);
+        const stream = await md.getUserMedia({
+            video: {
+                facingMode: { ideal: 'environment' },
+                aspectRatio: { ideal: aspectIdeal },
+                width: { ideal: portrait ? 1080 : 1920 },
+                height: { ideal: portrait ? 1920 : 1080 },
+                frameRate: { ideal: 30 },
+            },
+            audio: false,
+        });
         camState.stream = stream;
         camState.torch = false;
         const v = document.getElementById('camVideo');
@@ -2712,8 +2727,13 @@ async function openCamViewfinder() {
         if (v.play) { try { await v.play(); } catch (e) { /* autoplay 受限不拦快门 */ } }
         const track = stream.getVideoTracks()[0];
         const caps = (track && track.getCapabilities) ? track.getCapabilities() : {};
+        /* 连续自动对焦：近拍食物不发糊（部分机型不支持则忽略） */
+        if (track && track.applyConstraints) {
+            track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => { /* 忽略 */ });
+        }
         const torchBtn = document.getElementById('camTorch');
         if (torchBtn) torchBtn.classList.toggle('hidden', !(caps && caps.torch));
+        setupCamZoom(track);
         document.getElementById('camOverlay').classList.remove('hidden');
     } catch (e) {
         /* 明确告诉用户为什么没打开相机，再退回原生输入兜底 */
@@ -2740,8 +2760,46 @@ function closeCamViewfinder() {
     camState.torch = false;
     const v = document.getElementById('camVideo');
     if (v) { try { v.srcObject = null; } catch (e) { /* 只读属性忽略 */ } }
+    const zw = document.getElementById('camZoomWrap');
+    if (zw) zw.classList.add('hidden');
     const ov = document.getElementById('camOverlay');
     if (ov) ov.classList.add('hidden');
+}
+
+/** 变焦能力检测：支持才显示滑杆（不支持的机型直接隐藏） */
+function setupCamZoom(track) {
+    const wrap = document.getElementById('camZoomWrap');
+    const input = document.getElementById('camZoom');
+    const val = document.getElementById('camZoomVal');
+    if (!wrap || !input) return;
+    const caps = (track && track.getCapabilities) ? track.getCapabilities() : {};
+    if (!caps || !caps.zoom) { wrap.classList.add('hidden'); return; }
+    const min = (caps.zoom.min != null) ? Number(caps.zoom.min) : 1;
+    const max = (caps.zoom.max != null) ? Number(caps.zoom.max) : min;
+    input.min = String(min);
+    input.max = String(max);
+    input.step = String(caps.zoom.step || 0.1);
+    input.value = String(min);
+    camState.zoom = min;
+    if (val) val.textContent = min.toFixed(1) + '×';
+    wrap.classList.remove('hidden');
+}
+
+/** 设定变焦倍率（滑杆/双指捏合共用） */
+function setCamZoom(z) {
+    const input = document.getElementById('camZoom');
+    const val = document.getElementById('camZoomVal');
+    if (!input) return;
+    const min = parseFloat(input.min) || 1;
+    const max = parseFloat(input.max) || min;
+    z = Math.min(max, Math.max(min, z));
+    camState.zoom = z;
+    input.value = String(z);
+    if (val) val.textContent = z.toFixed(1) + '×';
+    const track = camState.stream && camState.stream.getVideoTracks()[0];
+    if (track && track.applyConstraints) {
+        track.applyConstraints({ advanced: [{ zoom: z }] }).catch(() => { /* 机型不支持则忽略 */ });
+    }
 }
 
 async function toggleCamTorch() {
@@ -3139,6 +3197,24 @@ function bindPhoto() {
         closeCamViewfinder();                          // 先关摄像头
         document.getElementById('photoAlbum').click(); // 再拉起相册选择
     });
+    document.getElementById('camZoom').addEventListener('input', (e) => {
+        setCamZoom(parseFloat(e.target.value));
+    });
+    /* 双指捏合变焦（手机端原生手感）；桌面用滑杆 */
+    const camDist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    let pinchBase = null;
+    const camVid = document.getElementById('camVideo');
+    camVid.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length === 2) pinchBase = { d: camDist(e.touches), z: camState.zoom };
+    }, { passive: true });
+    camVid.addEventListener('touchmove', (e) => {
+        if (pinchBase && e.touches && e.touches.length === 2) {
+            e.preventDefault();
+            const d = camDist(e.touches);
+            if (pinchBase.d > 0) setCamZoom(pinchBase.z * (d / pinchBase.d));
+        }
+    }, { passive: false });
+    camVid.addEventListener('touchend', () => { pinchBase = null; });
     document.getElementById('photoRetake').addEventListener('click', resetPhotoShot);
     document.getElementById('photoGo').addEventListener('click', runPhotoRecognize);
 }

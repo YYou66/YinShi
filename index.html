@@ -567,6 +567,10 @@
         <div class="cam-ctrl">
             <button class="cam-shutter" id="camShutter" type="button" aria-label="拍照"></button>
             <span class="cam-shutter-label">对准食物 · 点击拍照</span>
+            <div class="cam-zoom hidden" id="camZoomWrap">
+                <span class="cam-zoom-val" id="camZoomVal">1.0×</span>
+                <input type="range" class="cam-zoom-range" id="camZoom" min="1" max="8" step="0.1" value="1" aria-label="变焦倍率">
+            </div>
         </div>
         <div class="cam-bar">
             <button class="cam-album-btn" id="camAlbum" type="button">🖼️ 我的相册</button>

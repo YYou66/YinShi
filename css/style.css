@@ -727,7 +727,8 @@ main { flex: 1; padding: 40px 0 64px; }
 }
 .cam-video {
     position: absolute; inset: 0; width: 100%; height: 100%;
-    object-fit: cover; background: #101216;
+    object-fit: cover;      /* 满屏显示；配合「请求屏幕比例的竖屏流」把裁切降到最低（视野≈系统相机） */
+    background: #101216;
 }
 .cam-top {
     position: relative; z-index: 2;
@@ -766,6 +767,31 @@ main { flex: 1; padding: 40px 0 64px; }
 .cam-shutter-label {
     color: #fff; font-size: 14px; font-weight: 700;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+/* 变焦滑杆（设备支持 zoom 能力时显示；配 1.0× 倍率读数） */
+.cam-zoom {
+    display: flex; align-items: center; gap: 10px;
+    width: min(72vw, 300px);
+}
+.cam-zoom-val {
+    color: #fff; font-size: 13px; font-weight: 800;
+    min-width: 36px; text-align: right;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+.cam-zoom-range {
+    flex: 1; -webkit-appearance: none; appearance: none;
+    height: 4px; border-radius: 2px;
+    background: rgba(255, 255, 255, 0.35);
+    outline: none; cursor: pointer;
+}
+.cam-zoom-range::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; border: none; box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+}
+.cam-zoom-range::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; border: none; box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
 }
 .cam-bar {
     position: relative; z-index: 2;
