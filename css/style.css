@@ -701,16 +701,85 @@ main { flex: 1; padding: 40px 0 64px; }
 }
 .photo-eye:hover { background: var(--blue); color: #fff; }
 
-.photo-drop {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 6px; padding: 26px 16px; margin-bottom: 12px;
-    background: var(--bg); border: 2px dashed var(--border); border-radius: 14px;
-    font-size: 14px; font-weight: 700; color: var(--text-light);
-    cursor: pointer; transition: all 0.22s ease;
+/* 拍照入口：拍照 / 相册两张独立卡片（间距分开，避免误触） */
+.photo-pick-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;
 }
-.photo-drop:hover { border-color: var(--blue); color: var(--blue-deep); background: var(--blue-soft); }
-.photo-drop-emoji { font-size: 30px; }
-.photo-drop input[type=file] { display: none; }
+.photo-pick {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 5px; padding: 26px 12px; width: 100%;
+    background: var(--bg); border: 2px solid var(--border); border-radius: 14px;
+    cursor: pointer; transition: all 0.22s ease; text-align: center;
+    font: inherit; appearance: none; -webkit-appearance: none;
+}
+.photo-pick:hover { border-color: var(--blue); background: var(--blue-soft); transform: translateY(-1px); }
+.photo-pick-cam:hover { border-color: var(--accent-deep); background: rgba(224, 160, 119, 0.10); }
+.photo-pick-emoji { font-size: 34px; line-height: 1; }
+.photo-pick-title { font-size: 15px; font-weight: 800; color: var(--text); }
+.photo-pick-sub { font-size: 11.5px; color: var(--text-light); }
+.photo-pick input[type=file] { display: none; }
+
+/* ---- 应用内取景框（仿原生相机：实时预览 + 快门 + 相册栏） ---- */
+.cam-overlay {
+    position: fixed; inset: 0; z-index: 400;
+    display: flex; flex-direction: column;
+    background: #101216; overflow: hidden;
+}
+.cam-video {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; background: #101216;
+}
+.cam-top {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; padding-top: max(14px, env(safe-area-inset-top));
+    background: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+}
+.cam-top-right { display: flex; gap: 8px; }
+.cam-title {
+    color: #fff; font-size: 15px; font-weight: 800; letter-spacing: 1px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+.cam-icon-btn {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(0, 0, 0, 0.35);
+    color: #fff; font-size: 16px; cursor: pointer; transition: background 0.18s ease;
+}
+.cam-icon-btn:hover { background: rgba(0, 0, 0, 0.6); }
+.cam-ctrl {
+    position: relative; z-index: 2; margin-top: auto;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding-bottom: 18px;
+}
+.cam-shutter {
+    width: 80px; height: 80px; border-radius: 50%; padding: 0;
+    border: 4px solid rgba(255, 255, 255, 0.95); background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: transform 0.12s ease;
+}
+.cam-shutter::after {
+    content: ''; width: 60px; height: 60px; border-radius: 50%;
+    background: #fff; transition: transform 0.12s ease;
+}
+.cam-shutter:active { transform: scale(0.94); }
+.cam-shutter:active::after { transform: scale(0.9); }
+.cam-shutter-label {
+    color: #fff; font-size: 14px; font-weight: 700;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+.cam-bar {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 18px calc(18px + env(safe-area-inset-bottom));
+    background: rgba(0, 0, 0, 0.72); backdrop-filter: blur(6px);
+}
+.cam-album-btn {
+    border: 1px solid rgba(255, 255, 255, 0.4); background: transparent; color: #fff;
+    font-size: 14px; font-weight: 700; padding: 9px 16px;
+    border-radius: 999px; cursor: pointer; transition: background 0.18s ease;
+}
+.cam-album-btn:hover { background: rgba(255, 255, 255, 0.14); }
+.cam-hint { color: rgba(255, 255, 255, 0.72); font-size: 12px; }
 .photo-preview {
     display: block; max-width: 100%; max-height: 320px; margin: 0 auto 12px;
     border-radius: 12px; border: 1.5px solid var(--border);
@@ -2410,4 +2479,9 @@ main { flex: 1; padding: 40px 0 64px; }
     .y-meal-kcal { width: 84px; }
     .y-actions { justify-content: stretch; }
     .y-actions .toolbar-btn { flex: 1; }
+    /* 取景框：手机竖屏下收窄提示、快门更靠近拇指位 */
+    .cam-hint { display: none; }
+    .cam-shutter { width: 74px; height: 74px; }
+    .cam-shutter::after { width: 55px; height: 55px; }
+    .cam-bar { justify-content: center; }
 }

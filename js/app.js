@@ -2613,6 +2613,7 @@ function openPhotoModal() {
 }
 
 function closePhotoModal() {
+    closeCamViewfinder();   // 取景框若还开着，先停摄像头再关窗
     /* 关窗兜底：表单三项齐全就自动保存，避免「贴了没点保存」下次重贴 */
     const cfg = readVisionCfgForm();
     if (cfg.endpoint && cfg.model && cfg.key) {
@@ -2663,10 +2664,76 @@ function resetPhotoShot() {
     const pv = document.getElementById('photoPreview');
     pv.src = '';
     pv.classList.add('hidden');
-    const inp = document.getElementById('photoInput');
+    const inp = document.getElementById('photoAlbum');
     if (inp) inp.value = '';
+    const cam = document.getElementById('photoCam');
+    if (cam) cam.value = '';
     document.getElementById('photoGo').disabled = true;
     document.getElementById('photoResult').innerHTML = '';
+}
+
+/* ---------- 应用内取景框（getUserMedia 实时预览；不可用时退回原生相机） ---------- */
+const camState = { stream: null, torch: false };
+
+async function openCamViewfinder() {
+    const md = navigator.mediaDevices;
+    if (!md || !md.getUserMedia) { document.getElementById('photoCam').click(); return; }   // 无 API（如 http/无摄像头）→ 原生相机
+    try {
+        const stream = await md.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+        camState.stream = stream;
+        camState.torch = false;
+        const v = document.getElementById('camVideo');
+        v.srcObject = stream;
+        if (v.play) { try { await v.play(); } catch (e) { /* autoplay 受限不拦快门 */ } }
+        const track = stream.getVideoTracks()[0];
+        const caps = (track && track.getCapabilities) ? track.getCapabilities() : {};
+        const torchBtn = document.getElementById('camTorch');
+        if (torchBtn) torchBtn.classList.toggle('hidden', !(caps && caps.torch));
+        document.getElementById('camOverlay').classList.remove('hidden');
+    } catch (e) {
+        /* 被拒绝 / 没有摄像头 → 退回原生相机输入兜底 */
+        document.getElementById('photoCam').click();
+    }
+}
+
+function closeCamViewfinder() {
+    const s = camState.stream;
+    if (s) { try { s.getTracks().forEach(t => t.stop()); } catch (e) { /* 忽略 */ } }
+    camState.stream = null;
+    camState.torch = false;
+    const v = document.getElementById('camVideo');
+    if (v) { try { v.srcObject = null; } catch (e) { /* 只读属性忽略 */ } }
+    const ov = document.getElementById('camOverlay');
+    if (ov) ov.classList.add('hidden');
+}
+
+async function toggleCamTorch() {
+    const track = camState.stream && camState.stream.getVideoTracks()[0];
+    if (!track || !track.applyConstraints) return;
+    try {
+        camState.torch = !camState.torch;
+        await track.applyConstraints({ advanced: [{ torch: camState.torch }] });
+    } catch (e) {
+        camState.torch = false;
+        const b = document.getElementById('camTorch');
+        if (b) b.classList.add('hidden');
+    }
+}
+
+/** 快门：截当前帧 → 复用缩图/预览/启用识别流程 */
+function camShoot() {
+    const v = document.getElementById('camVideo');
+    if (!v || !v.videoWidth) { showToast('取景画面还没准备好，稍等一下再按快门 📷'); return; }
+    const max = 1024;
+    const scale = Math.min(1, max / Math.max(v.videoWidth, v.videoHeight));
+    const w = Math.max(1, Math.round(v.videoWidth * scale));
+    const h = Math.max(1, Math.round(v.videoHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(v, 0, 0, w, h);
+    const src = canvas.toDataURL('image/jpeg', 0.85);
+    closeCamViewfinder();
+    downscalePhoto(src);
 }
 
 /** 测试连接：表单齐全 → 直连测试；表单全空 → 测站点云端中转 */
@@ -3019,8 +3086,21 @@ function bindPhoto() {
         renderPhotoCfgForm();
         renderPhotoView();
     });
-    document.getElementById('photoInput').addEventListener('change', (e) => {
+    document.getElementById('photoCam').addEventListener('change', (e) => {
         handlePhotoFile(e.target.files && e.target.files[0]);
+    });
+    document.getElementById('photoAlbum').addEventListener('change', (e) => {
+        handlePhotoFile(e.target.files && e.target.files[0]);
+    });
+
+    /* 应用内取景框 */
+    document.getElementById('photoCamBtn').addEventListener('click', openCamViewfinder);
+    document.getElementById('camClose').addEventListener('click', closeCamViewfinder);
+    document.getElementById('camShutter').addEventListener('click', camShoot);
+    document.getElementById('camTorch').addEventListener('click', toggleCamTorch);
+    document.getElementById('camAlbum').addEventListener('click', () => {
+        closeCamViewfinder();                          // 先关摄像头
+        document.getElementById('photoAlbum').click(); // 再拉起相册选择
     });
     document.getElementById('photoRetake').addEventListener('click', resetPhotoShot);
     document.getElementById('photoGo').addEventListener('click', runPhotoRecognize);

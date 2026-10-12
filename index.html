@@ -545,6 +545,26 @@
         </div>
     </div>
 
+    <!-- ============ 应用内相机取景框（实时预览 + 快门 + 相册栏，仿原生相机） ============ -->
+    <div id="camOverlay" class="cam-overlay hidden">
+        <video id="camVideo" class="cam-video" playsinline autoplay muted></video>
+        <div class="cam-top">
+            <span class="cam-title">📷 拍照识别</span>
+            <span class="cam-top-right">
+                <button class="cam-icon-btn hidden" id="camTorch" type="button" aria-label="照明">🔦</button>
+                <button class="cam-icon-btn" id="camClose" type="button" aria-label="关闭取景框">✕</button>
+            </span>
+        </div>
+        <div class="cam-ctrl">
+            <button class="cam-shutter" id="camShutter" type="button" aria-label="拍照"></button>
+            <span class="cam-shutter-label">对准食物 · 点击拍照</span>
+        </div>
+        <div class="cam-bar">
+            <button class="cam-album-btn" id="camAlbum" type="button">🖼️ 我的相册</button>
+            <span class="cam-hint">把食物放进取景框中央</span>
+        </div>
+    </div>
+
     <!-- ============ 拍照识别弹窗（真·视觉模型） ============ -->
     <div class="modal-overlay" id="photoModal">
         <div class="modal modal-wide">
@@ -583,13 +603,22 @@
                 </div>
             </div>
 
-            <!-- 已配置 → 拍照区 -->
+            <!-- 已配置 → 拍照区（拍照 / 相册两个独立入口，间距分开） -->
             <div id="photoShoot" class="hidden">
-                <label class="photo-drop" for="photoInput" id="photoDrop">
-                    <span class="photo-drop-emoji">📸</span>
-                    <span>点击拍照 / 选择图片</span>
-                    <input type="file" id="photoInput" accept="image/*" capture="environment">
-                </label>
+                <div class="photo-pick-grid">
+                    <button type="button" id="photoCamBtn" class="photo-pick photo-pick-cam">
+                        <span class="photo-pick-emoji">📷</span>
+                        <span class="photo-pick-title">拍照</span>
+                        <span class="photo-pick-sub">打开取景框现拍食物</span>
+                    </button>
+                    <label class="photo-pick photo-pick-album" for="photoAlbum">
+                        <span class="photo-pick-emoji">🖼️</span>
+                        <span class="photo-pick-title">从相册选择</span>
+                        <span class="photo-pick-sub">选以前拍好的照片</span>
+                        <input type="file" id="photoAlbum" accept="image/*">
+                    </label>
+                </div>
+                <input type="file" id="photoCam" accept="image/*" capture="environment" class="hidden">
                 <img id="photoPreview" class="photo-preview hidden" alt="识别预览">
                 <div class="modal-actions">
                     <button class="modal-btn-cancel" id="photoRetake">🗑 清空</button>
