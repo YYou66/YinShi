@@ -2690,10 +2690,11 @@ async function openCamViewfinder() {
     const md = navigator.mediaDevices;
     const app = inAppBrowser();
     if (!md || !md.getUserMedia) {
-        /* 无 API（App 内置浏览器 / 非 HTTPS / 本地文件）→ 原生相机兜底 */
+        /* 无 API（App 内置浏览器 / 非 HTTPS / 本地文件）→ 原生相机兜底，附浏览器标识便于排查 */
+        const ua = String(navigator.userAgent || '').slice(0, 60);
         showToast(app
             ? '⚠️ ' + app + '内不支持网页取景：点右上角 ⋯ 菜单选「在浏览器中打开」，再点拍照'
-            : '⚠️ 当前环境不支持网页取景（需 https + 较新浏览器），已切换为选择文件');
+            : '⚠️ 当前环境不支持网页取景，已切换为选择文件。浏览器标识：' + ua);
         document.getElementById('photoCam').click(); return;
     }
     try {
