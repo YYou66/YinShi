@@ -2580,6 +2580,12 @@ function renderPhotoView() {
     if (s) s.classList.toggle('hidden', showCfg);
     const badge = document.getElementById('photoModeBadge');
     if (badge) badge.textContent = visionDirectReady() ? '🔑 本机 Key 直连' : '☁️ 云端识别 · 免配置';
+    /* 拍照卡说明：环境不支持取景时如实标注，避免用户以为能开相机 */
+    const camSub = document.getElementById('photoCamSub');
+    if (camSub) {
+        const usable = !inAppBrowser() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        camSub.textContent = usable ? '打开取景框现拍食物' : '此环境无法取景 · 点击后选照片';
+    }
 }
 
 /** 把已存配置填进设置表单 */
