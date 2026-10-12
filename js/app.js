@@ -2677,7 +2677,11 @@ const camState = { stream: null, torch: false };
 
 async function openCamViewfinder() {
     const md = navigator.mediaDevices;
-    if (!md || !md.getUserMedia) { document.getElementById('photoCam').click(); return; }   // 无 API（如 http/无摄像头）→ 原生相机
+    if (!md || !md.getUserMedia) {
+        /* 无 API（非 HTTPS / 本地文件 / 老浏览器）→ 原生相机兜底 */
+        showToast('⚠️ 当前环境不支持网页取景（需 https + 较新浏览器），已切换为选择文件');
+        document.getElementById('photoCam').click(); return;
+    }
     try {
         const stream = await md.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
         camState.stream = stream;
@@ -2691,7 +2695,17 @@ async function openCamViewfinder() {
         if (torchBtn) torchBtn.classList.toggle('hidden', !(caps && caps.torch));
         document.getElementById('camOverlay').classList.remove('hidden');
     } catch (e) {
-        /* 被拒绝 / 没有摄像头 → 退回原生相机输入兜底 */
+        /* 明确告诉用户为什么没打开相机，再退回原生输入兜底 */
+        const name = (e && e.name) || '';
+        if (name === 'NotAllowedError' || name === 'SecurityError') {
+            showToast('⚠️ 相机权限被拒绝：点地址栏旁的相机图标选「允许」，或到浏览器设置 → 网站权限 → 相机里开启');
+        } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+            showToast('📷 这台设备没有检测到摄像头，已切换为选择文件');
+        } else if (name === 'NotReadableError' || name === 'AbortError') {
+            showToast('📷 相机可能被其他应用占用（如腾讯会议/微信），关掉后重试；已切换为选择文件');
+        } else {
+            showToast('📷 无法打开相机（' + (name || (e && e.message) || e) + '），已切换为选择文件');
+        }
         document.getElementById('photoCam').click();
     }
 }
