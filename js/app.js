@@ -2675,11 +2675,25 @@ function resetPhotoShot() {
 /* ---------- 应用内取景框（getUserMedia 实时预览；不可用时退回原生相机） ---------- */
 const camState = { stream: null, torch: false };
 
+/** 识别 App 内置浏览器（微信/抖音等常屏蔽网页相机）——返回名称或空串 */
+function inAppBrowser() {
+    const ua = navigator.userAgent || '';
+    if (/MicroMessenger/i.test(ua)) return '微信';
+    if (/QQ\//i.test(ua)) return 'QQ';
+    if (/aweme|douyin/i.test(ua)) return '抖音';
+    if (/Weibo/i.test(ua)) return '微博';
+    if (/XHS/i.test(ua)) return '小红书';
+    return '';
+}
+
 async function openCamViewfinder() {
     const md = navigator.mediaDevices;
+    const app = inAppBrowser();
     if (!md || !md.getUserMedia) {
-        /* 无 API（非 HTTPS / 本地文件 / 老浏览器）→ 原生相机兜底 */
-        showToast('⚠️ 当前环境不支持网页取景（需 https + 较新浏览器），已切换为选择文件');
+        /* 无 API（App 内置浏览器 / 非 HTTPS / 本地文件）→ 原生相机兜底 */
+        showToast(app
+            ? '⚠️ ' + app + '内不支持网页取景：点右上角 ⋯ 菜单选「在浏览器中打开」，再点拍照'
+            : '⚠️ 当前环境不支持网页取景（需 https + 较新浏览器），已切换为选择文件');
         document.getElementById('photoCam').click(); return;
     }
     try {
@@ -2697,7 +2711,9 @@ async function openCamViewfinder() {
     } catch (e) {
         /* 明确告诉用户为什么没打开相机，再退回原生输入兜底 */
         const name = (e && e.name) || '';
-        if (name === 'NotAllowedError' || name === 'SecurityError') {
+        if (app) {
+            showToast('⚠️ ' + app + '内相机受限：点右上角 ⋯ 菜单选「在浏览器中打开」后再拍；已切换为选择文件');
+        } else if (name === 'NotAllowedError' || name === 'SecurityError') {
             showToast('⚠️ 相机权限被拒绝：点地址栏旁的相机图标选「允许」，或到浏览器设置 → 网站权限 → 相机里开启');
         } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
             showToast('📷 这台设备没有检测到摄像头，已切换为选择文件');
