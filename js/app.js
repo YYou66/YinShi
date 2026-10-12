@@ -3143,10 +3143,22 @@ function bindPhoto() {
     document.getElementById('photoGo').addEventListener('click', runPhotoRecognize);
 }
 
+/* ---------- PWA：注册 Service Worker（离线可用；非 https/本地文件自动跳过） ---------- */
+function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    const host = location.hostname || '';
+    const okProto = location.protocol === 'https:' || host === 'localhost' || host === '127.0.0.1';
+    if (!okProto) return;
+    try {
+        navigator.serviceWorker.register('sw.js').catch(() => { /* 注册失败不干扰主功能 */ });
+    } catch (e) { /* 极老浏览器忽略 */ }
+}
+
 /* ==========================================================
  * 启动
  * ========================================================== */
 document.addEventListener('DOMContentLoaded', () => {
+    registerServiceWorker();   // PWA 离线缓存
     migrateLegacyLS();      // 旧数据无损迁移到带版本号的 key
     bindTabs();
     renderFilterTags();

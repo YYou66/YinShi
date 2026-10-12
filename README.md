@@ -54,6 +54,16 @@ python -m http.server 8000
 # 浏览器访问 http://localhost:8000
 ```
 
+## PWA · 安装到手机桌面（变成「真软件」）
+
+站点已支持 PWA：`manifest.webmanifest`（应用名/图标/全屏配置）+ `sw.js`（离线缓存）+ `tools/gen-icons.js`（图标生成器，输出到 `assets/`）。
+
+- **安装**：手机浏览器打开 yuvo.asia → Chrome/Edge 菜单选「**添加到主屏幕**」（iOS Safari 为 分享 → 添加到主屏幕）→ 桌面出现「饮食手账」图标，点开**全屏独立运行、无地址栏**，取景框相机正常可用
+- **离线**：首次打开后全站静态资源（含 916 款食物库）缓存到本地，断网也能查热量、看记录；云端拍照识别需要联网
+- **更新机制**：页面导航走「网络优先」，推新版立即生效；静态资源缓存优先、后台静默更新；发大版本时把 `sw.js` 里的 `VERSION`（如 `ys-pwa-v2`）改掉即可强制清缓存
+- **注意**：`/api/*` 与非 GET 请求永不缓存；Service Worker 仅在 https/localhost 注册（`file://` 直开不生效）
+- **改图标**：编辑 `tools/gen-icons.js` 配色/图形后执行 `node tools/gen-icons.js` 重新生成
+
 ## 修改指南
 
 - **改食物数据**：编辑 `js/data.js`，在 `FOODS` 数组增删对象。每个对象含名称、emoji、分类、计量方式（`measure: count/weight`）、热量 `cal`、三大营养素 `p/c/f`、标签 `tags`、营养要点与减脂提示（完整字段说明见文件顶部注释）。

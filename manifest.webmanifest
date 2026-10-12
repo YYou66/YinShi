@@ -1,0 +1,21 @@
+{
+    "name": "饮食热量记录站 · 小手账，记每一口",
+    "short_name": "饮食手账",
+    "description": "小手账，记每一口：916 款食物热量库、八大菜系与全国省区、品牌热量、热量计算器、拍照识别、运动消耗换算。",
+    "lang": "zh-CN",
+    "dir": "ltr",
+    "id": "./",
+    "start_url": "./",
+    "scope": "./",
+    "display": "standalone",
+    "display_override": ["standalone", "minimal-ui"],
+    "orientation": "portrait",
+    "background_color": "#F8F5EF",
+    "theme_color": "#6E97AB",
+    "categories": ["food", "health", "lifestyle"],
+    "icons": [
+        { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "assets/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}
