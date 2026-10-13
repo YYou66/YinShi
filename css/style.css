@@ -737,6 +737,15 @@ main { flex: 1; padding: 40px 0 64px; }
     background: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
 }
 .cam-top-right { display: flex; gap: 8px; }
+/* 诊断条：实际流分辨率 · 变焦模式 · 对焦（排查模糊/视野问题用，用户截图即可定位） */
+.cam-diag {
+    position: relative; z-index: 2;
+    width: fit-content; margin: -4px 16px 0;
+    padding: 2px 8px; border-radius: 6px;
+    font-size: 10px; line-height: 1.6; color: rgba(255, 255, 255, 0.65);
+    background: rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+}
 .cam-title {
     color: #fff; font-size: 15px; font-weight: 800; letter-spacing: 1px;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);

@@ -1,10 +1,11 @@
 /* ==========================================================
- * 饮食热量记录站 · Service Worker（PWA 离线支持）
- * - 导航请求：网络优先（发版立即生效），断网回退缓存首页
- * - 静态资源：缓存优先 + 后台更新（首次装完全站可离线）
- * - /api/ 与跨域请求：直接走网络，绝不缓存（云端识别不受影响）
+ * 饮食热量记录站 · Service Worker（PWA 离线支持）v2
+ * - 导航 + 核心代码（html/js/css/manifest）：网络优先 → 发版立即生效，断网回退缓存
+ * - 数据与图标（data/*、assets/*）：缓存优先 + 后台静默更新（装完可离线）
+ * - /api/ 与跨域、非 GET：直接走网络，绝不缓存（云端识别不受影响）
+ * 注意：改动核心代码后如需强制清缓存，把下面 VERSION 升一档（ys-pwa-vN）
  * ========================================================== */
-const VERSION = 'ys-pwa-v1';
+const VERSION = 'ys-pwa-v2';
 
 const PRECACHE = [
     './',
@@ -54,6 +55,9 @@ self.addEventListener('activate', (event) => {
     );
 });
 
+/* 核心代码清单：网络优先，用户永远拿到最新版 */
+const CORE = ['/js/app.js', '/js/data.js', '/css/style.css', '/manifest.webmanifest'];
+
 self.addEventListener('fetch', (event) => {
     const req = event.request;
     if (req.method !== 'GET') return;                                  // POST（云端识别）不碰缓存
@@ -75,7 +79,23 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    /* 静态资源：缓存优先，命中后后台静默更新 */
+    /* 核心代码：网络优先（发版立即生效），失败回退缓存（离线可用） */
+    if (CORE.some((p) => url.pathname.endsWith(p))) {
+        event.respondWith(
+            fetch(req)
+                .then((res) => {
+                    if (res && res.ok) {
+                        const copy = res.clone();
+                        caches.open(VERSION).then((cache) => cache.put(req, copy));
+                    }
+                    return res;
+                })
+                .catch(() => caches.match(req))
+        );
+        return;
+    }
+
+    /* 数据与图标：缓存优先 + 后台静默更新 */
     event.respondWith(
         caches.match(req).then((hit) => {
             const net = fetch(req)

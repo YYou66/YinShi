@@ -2679,7 +2679,7 @@ function resetPhotoShot() {
 }
 
 /* ---------- 应用内取景框（getUserMedia 实时预览；不可用时退回原生相机） ---------- */
-const camState = { stream: null, torch: false, zoom: 1 };
+const camState = { stream: null, torch: false, zoom: 1, zoomMode: 'hw' };
 
 /** 识别 App 内置浏览器（微信/抖音等常屏蔽网页相机）——返回名称或空串 */
 function inAppBrowser() {
@@ -2734,6 +2734,7 @@ async function openCamViewfinder() {
         const torchBtn = document.getElementById('camTorch');
         if (torchBtn) torchBtn.classList.toggle('hidden', !(caps && caps.torch));
         setupCamZoom(track);
+        updateCamDiag(track, v);   // 诊断条：实际流参数（模糊/视野问题截图即可定位）
         document.getElementById('camOverlay').classList.remove('hidden');
     } catch (e) {
         /* 明确告诉用户为什么没打开相机，再退回原生输入兜底 */
@@ -2758,34 +2759,82 @@ function closeCamViewfinder() {
     if (s) { try { s.getTracks().forEach(t => t.stop()); } catch (e) { /* 忽略 */ } }
     camState.stream = null;
     camState.torch = false;
+    camState.zoom = 1;
     const v = document.getElementById('camVideo');
-    if (v) { try { v.srcObject = null; } catch (e) { /* 只读属性忽略 */ } }
+    if (v) {
+        try { v.srcObject = null; } catch (e) { /* 只读属性忽略 */ }
+        if (v.style) v.style.transform = '';   // 数字变焦复位
+    }
     const zw = document.getElementById('camZoomWrap');
     if (zw) zw.classList.add('hidden');
+    const zi = document.getElementById('camZoom');
+    if (zi) zi.value = zi.min || '1';
+    const diag = document.getElementById('camDiag');
+    if (diag) diag.textContent = '';
     const ov = document.getElementById('camOverlay');
     if (ov) ov.classList.add('hidden');
 }
 
-/** 变焦能力检测：支持才显示滑杆（不支持的机型直接隐藏） */
+/** 诊断条：显示实际流分辨率 / 变焦模式 / 对焦状态（用户截图即可远程定位机型问题） */
+function updateCamDiag(track, v) {
+    const el = document.getElementById('camDiag');
+    if (!el) return;
+    const caps = (track && track.getCapabilities) ? track.getCapabilities() : {};
+    const st = (track && track.getSettings) ? track.getSettings() : {};
+    const res = (v && v.videoWidth) ? (v.videoWidth + '×' + v.videoHeight)
+        : ((st.width || '?') + '×' + (st.height || '?'));
+    const zoomInfo = (caps && caps.zoom)
+        ? ('硬件变焦 ' + Number(caps.zoom.min) + '~' + Number(caps.zoom.max) + '×')
+        : '数字变焦 1~4×';
+    el.textContent = res + ' · ' + zoomInfo + ' · 连续对焦';
+    if (v && !v.videoWidth && v.addEventListener) {
+        /* 元数据未就绪：加载完成后刷新一次 */
+        v.addEventListener('loadedmetadata', () => {
+            el.textContent = v.videoWidth + '×' + v.videoHeight + ' · ' + zoomInfo + ' · 连续对焦';
+        }, { once: true });
+    }
+}
+
+/** 变焦能力检测：有硬件 zoom 用硬件，否则数字变焦（CSS 缩放，任何机型可用） */
 function setupCamZoom(track) {
     const wrap = document.getElementById('camZoomWrap');
     const input = document.getElementById('camZoom');
     const val = document.getElementById('camZoomVal');
     if (!wrap || !input) return;
     const caps = (track && track.getCapabilities) ? track.getCapabilities() : {};
-    if (!caps || !caps.zoom) { wrap.classList.add('hidden'); return; }
-    const min = (caps.zoom.min != null) ? Number(caps.zoom.min) : 1;
-    const max = (caps.zoom.max != null) ? Number(caps.zoom.max) : min;
-    input.min = String(min);
-    input.max = String(max);
-    input.step = String(caps.zoom.step || 0.1);
-    input.value = String(min);
-    camState.zoom = min;
-    if (val) val.textContent = min.toFixed(1) + '×';
+    if (caps && caps.zoom) {
+        /* 硬件/底层变焦能力 */
+        camState.zoomMode = 'hw';
+        const min = (caps.zoom.min != null) ? Number(caps.zoom.min) : 1;
+        const max = (caps.zoom.max != null) ? Number(caps.zoom.max) : min;
+        input.min = String(min);
+        input.max = String(max);
+        input.step = String(caps.zoom.step || 0.1);
+        camState.zoom = min;
+    } else {
+        /* 无变焦能力 → 数字变焦：缩放画面中心区域（画质会随倍率下降，属正常） */
+        camState.zoomMode = 'css';
+        input.min = '1';
+        input.max = '4';
+        input.step = '0.1';
+        camState.zoom = 1;
+    }
+    input.value = String(camState.zoom);
+    if (val) val.textContent = camState.zoom.toFixed(1) + '×';
+    applyCssZoom();
     wrap.classList.remove('hidden');
 }
 
-/** 设定变焦倍率（滑杆/双指捏合共用） */
+/** 数字变焦：直接缩放预览画面（硬件变焦机型不使用） */
+function applyCssZoom() {
+    const v = document.getElementById('camVideo');
+    if (!v || !v.style) return;
+    v.style.transform = (camState.zoomMode === 'css' && camState.zoom > 1)
+        ? 'scale(' + camState.zoom + ')'
+        : '';
+}
+
+/** 设定变焦倍率（滑杆/双指捏合共用；硬件优先，数字兜底） */
 function setCamZoom(z) {
     const input = document.getElementById('camZoom');
     const val = document.getElementById('camZoomVal');
@@ -2796,9 +2845,13 @@ function setCamZoom(z) {
     camState.zoom = z;
     input.value = String(z);
     if (val) val.textContent = z.toFixed(1) + '×';
-    const track = camState.stream && camState.stream.getVideoTracks()[0];
-    if (track && track.applyConstraints) {
-        track.applyConstraints({ advanced: [{ zoom: z }] }).catch(() => { /* 机型不支持则忽略 */ });
+    if (camState.zoomMode === 'hw') {
+        const track = camState.stream && camState.stream.getVideoTracks()[0];
+        if (track && track.applyConstraints) {
+            track.applyConstraints({ advanced: [{ zoom: z }] }).catch(() => { /* 机型不支持则忽略 */ });
+        }
+    } else {
+        applyCssZoom();
     }
 }
 
@@ -2815,17 +2868,28 @@ async function toggleCamTorch() {
     }
 }
 
-/** 快门：截当前帧 → 复用缩图/预览/启用识别流程 */
+/** 快门：截「所见即所得」区域（cover 可见区 ∩ 数字变焦）→ 复用缩图/预览/启用识别流程 */
 function camShoot() {
     const v = document.getElementById('camVideo');
     if (!v || !v.videoWidth) { showToast('取景画面还没准备好，稍等一下再按快门 📷'); return; }
+    /* 可见区域：先按屏幕比例做 cover 裁切，再叠加数字变焦（硬件变焦已在帧里） */
+    const vw = v.videoWidth, vh = v.videoHeight;
+    const screenAspect = (window.innerWidth && window.innerHeight)
+        ? (window.innerWidth / window.innerHeight) : (vw / vh);
+    let cw = vw;
+    let ch = cw / screenAspect;
+    if (ch > vh) { ch = vh; cw = ch * screenAspect; }
+    const zoom = (camState.zoomMode === 'css' && camState.zoom > 1) ? camState.zoom : 1;
+    cw = cw / zoom;
+    ch = ch / zoom;
+    const sx = (vw - cw) / 2, sy = (vh - ch) / 2;
     const max = 1024;
-    const scale = Math.min(1, max / Math.max(v.videoWidth, v.videoHeight));
-    const w = Math.max(1, Math.round(v.videoWidth * scale));
-    const h = Math.max(1, Math.round(v.videoHeight * scale));
+    const scale = Math.min(1, max / Math.max(cw, ch));
+    const w = Math.max(1, Math.round(cw * scale));
+    const h = Math.max(1, Math.round(ch * scale));
     const canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
-    canvas.getContext('2d').drawImage(v, 0, 0, w, h);
+    canvas.getContext('2d').drawImage(v, sx, sy, cw, ch, 0, 0, w, h);
     const src = canvas.toDataURL('image/jpeg', 0.85);
     closeCamViewfinder();
     downscalePhoto(src);
