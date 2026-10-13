@@ -2704,18 +2704,13 @@ async function openCamViewfinder() {
         document.getElementById('photoCam').click(); return;
     }
     try {
-        /* 请求与屏幕比例匹配的竖屏高清流：满屏 cover 时裁切最小（≈系统相机视野）；
-         * 之前无约束时浏览器常给横屏低清流，cover 在长屏手机上会裁掉大半宽度 = 看着像放大且发虚 */
-        const portrait = window.innerHeight >= window.innerWidth;
-        const aspectIdeal = (window.innerWidth && window.innerHeight)
-            ? (window.innerWidth / window.innerHeight)
-            : (portrait ? 0.5625 : 1.7778);
+        /* 请求 4:3 传感器全画幅高清流：contain 全视野显示时= 完整镜头画面，不裁切 */
         const stream = await md.getUserMedia({
             video: {
                 facingMode: { ideal: 'environment' },
-                aspectRatio: { ideal: aspectIdeal },
-                width: { ideal: portrait ? 1080 : 1920 },
-                height: { ideal: portrait ? 1920 : 1080 },
+                aspectRatio: { ideal: 1.3333 },   // 4:3 = 传感器全画幅
+                width: { ideal: 1600 },
+                height: { ideal: 1200 },
                 frameRate: { ideal: 30 },
             },
             audio: false,
@@ -2868,20 +2863,14 @@ async function toggleCamTorch() {
     }
 }
 
-/** 快门：截「所见即所得」区域（cover 可见区 ∩ 数字变焦）→ 复用缩图/预览/启用识别流程 */
+/** 快门：截「所见即所得」（contain 全视野 = 整帧 × 数字变焦中心裁切）→ 复用缩图/预览/启用识别流程 */
 function camShoot() {
     const v = document.getElementById('camVideo');
     if (!v || !v.videoWidth) { showToast('取景画面还没准备好，稍等一下再按快门 📷'); return; }
-    /* 可见区域：先按屏幕比例做 cover 裁切，再叠加数字变焦（硬件变焦已在帧里） */
     const vw = v.videoWidth, vh = v.videoHeight;
-    const screenAspect = (window.innerWidth && window.innerHeight)
-        ? (window.innerWidth / window.innerHeight) : (vw / vh);
-    let cw = vw;
-    let ch = cw / screenAspect;
-    if (ch > vh) { ch = vh; cw = ch * screenAspect; }
+    /* contain 显示 = 整帧可见；数字变焦时取中心 1/z 区域（硬件变焦已在帧里） */
     const zoom = (camState.zoomMode === 'css' && camState.zoom > 1) ? camState.zoom : 1;
-    cw = cw / zoom;
-    ch = ch / zoom;
+    const cw = vw / zoom, ch = vh / zoom;
     const sx = (vw - cw) / 2, sy = (vh - ch) / 2;
     const max = 1024;
     const scale = Math.min(1, max / Math.max(cw, ch));

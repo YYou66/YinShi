@@ -727,7 +727,7 @@ main { flex: 1; padding: 40px 0 64px; }
 }
 .cam-video {
     position: absolute; inset: 0; width: 100%; height: 100%;
-    object-fit: cover;      /* 满屏显示；配合「请求屏幕比例的竖屏流」把裁切降到最低（视野≈系统相机） */
+    object-fit: contain;        /* 全视野显示：画面不裁切，镜头看到多少就显示多少（上下留黑正常） */
     background: #101216;
 }
 .cam-top {
